@@ -165,7 +165,7 @@ namespace SL.Lib
             return shape;
         }
 
-        public dynamic AsReadOnly() {
+        public Tensor<T> AsReadOnly() {
             MakeReadOnly();
             return this; 
         }
