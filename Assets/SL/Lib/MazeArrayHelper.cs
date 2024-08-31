@@ -120,32 +120,32 @@ namespace SL.Lib
     }
     public class MazeArrayHelper
     {
-        private static List<Tensor2D<bool>> _rotMasks;
+        private static List<Tensor<float>> _rotMasks;
         private static Tensor<int> _rotLabel;
         private static Tensor<float> _surroundMask;
         private static Tensor<float> _neighborMask;
         private static Tensor<float> _deltaMask;
 
-        public static List<Tensor2D<bool>> RotMasks
+        public static List<Tensor<float>> RotMasks
         {
             get
             {
                 if (_rotMasks == null)
                 {
-                    var s1 = new Tensor2D<bool>(new bool[,]{
-                        { true, false, true },
-                        { false, false, true },
-                        { true, true, true }
+                    var s1 = new Tensor<float>(new[,]{
+                        { 1f, 0f, 1f },
+                        { 0f, 0f, 1f },
+                        { 1f, 1f, 1f }
                     });
 
-                    var s2 = new Tensor2D<bool>(new bool[,]
+                    var s2 = new Tensor<float>(new[,]
                     {
-                        { false, true, false },
-                        { false, false, false },
-                        { true, true, true }
+                        { 0f, 1f, 0f },
+                        { 0f, 0f, 0f },
+                        { 1f ,1f, 1f }
                     });
 
-                    _rotMasks = new List<Tensor2D<bool>> { s1, s2 };
+                    _rotMasks = new List<Tensor<float>> { s1, s2 };
 
                     for (int i = 0; i < 3; i++)
                     {
