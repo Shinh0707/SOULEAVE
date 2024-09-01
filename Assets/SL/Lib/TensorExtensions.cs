@@ -527,6 +527,50 @@ namespace SL.Lib
         }
     }
 
+    public static class Tensor2DExtension
+    {
+        public static bool IsTensor2D<T>(this Tensor<T> tensor) where T : IComparable<T> => tensor.Shape.Length == 2;
+
+        public static Tensor<T> Rotate90<T>(this Tensor<T> tensor, int rotations = 1) where T : IComparable<T>
+        {
+            if (!tensor.IsTensor2D())
+            {
+                throw new ArgumentException("Rotate90 can only be applied to 2-dimensional tensors.");
+            }
+
+            rotations = ((rotations % 4) + 4) % 4; // Normalize rotations to 0-3
+            if (rotations == 0) return new Tensor<T>(tensor); // No rotation needed
+
+            int rows = tensor.Shape[0];
+            int cols = tensor.Shape[1];
+            int newRows = (rotations % 2 == 0) ? rows : cols;
+            int newCols = (rotations % 2 == 0) ? cols : rows;
+
+            Tensor<T> rotated = new Tensor<T>(newRows, newCols);
+
+            for (int i = 0; i < rows; i++)
+            {
+                for (int j = 0; j < cols; j++)
+                {
+                    switch (rotations)
+                    {
+                        case 1: // 90 degrees clockwise
+                            rotated[j, rows - 1 - i] = tensor[i, j];
+                            break;
+                        case 2: // 180 degrees
+                            rotated[rows - 1 - i, cols - 1 - j] = tensor[i, j];
+                            break;
+                        case 3: // 270 degrees clockwise (or 90 degrees counterclockwise)
+                            rotated[cols - 1 - j, i] = tensor[i, j];
+                            break;
+                    }
+                }
+            }
+
+            return rotated;
+        }
+    }
+
     public partial class Tensor<T> where T : IComparable<T>
     {
         public T Sum()
