@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static SL.Lib.TensorPadding;
+using Random = System.Random;
 
 namespace SL.Lib
 {
@@ -118,6 +119,33 @@ namespace SL.Lib
             return equivalenceTable[label];
         }
     }
+
+    public class MazeCreater
+    {
+        private static Random _random;
+        public static Random Random
+        {
+            get
+            {
+                return _random ??= new Random();
+            }
+        }
+
+        public static T SelectRandom<T>(List<T> pool) => pool[Random.Next(pool.Count)];
+        public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out int directIndex) where T : IComparable<T>
+        {
+            var selectMask = mask & (field == searchValue);
+            if (selectMask.Any())
+            {
+                var selectList = selectMask.ArgWhere();
+                directIndex = SelectRandom(selectList);
+                return true;
+            }
+            directIndex = 0;
+            return false;
+        }
+    }
+
     public class MazeArrayHelper
     {
         private static List<Tensor<float>> _rotMasks;
@@ -125,6 +153,7 @@ namespace SL.Lib
         private static Tensor<float> _surroundMask;
         private static Tensor<float> _neighborMask;
         private static Tensor<float> _deltaMask;
+        
 
         public static List<Tensor<float>> RotMasks
         {
