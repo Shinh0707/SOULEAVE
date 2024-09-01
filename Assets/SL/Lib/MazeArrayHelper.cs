@@ -7,6 +7,58 @@ using static SL.Lib.SLSequential;
 
 namespace SL.Lib
 {
+    /// <summary>
+    /// 指定された位置を中心とする3x3の領域をフィールドから効率的に抽出します。
+    ///
+    /// 引数:
+    ///     pos(tuple[int, int]) : 中心位置の(行, 列)座標
+    ///     field(np.ndarray): 2次元のnumpy配列
+    ///     return_generator(bool): ジェネレータを返すかどうか（デフォルトはFalse）
+    ///     pad_value(int) : 境界外を埋める値（デフォルトは1）
+    ///
+    /// 戻り値:
+    ///     np.ndarray: 3x3の抽出された領域
+    ///     境界外の場合はパディングとしてpad_valueが使用されます。
+    ///     return_generatorがTrueの場合は、抽出された領域とジェネレータ関数のタプルを返します。
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    public class ESEResult<T> where T : IComparable<T>
+    {
+        private Range _rowRange;
+        private Range _colRange;
+        private (int row, int col) _center;
+        private T _padValue;
+
+        public static ESEResult<T> Get((int,int) pos,Tensor<T> field, T padValue)
+        {
+            (int row, int col) = pos;
+            int rows = field.Size(0);
+            int cols = field.Size(1);
+            return new ESEResult<T>((row, col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2), padValue);
+        }
+
+        public ESEResult((int,int) center,Range rowRange, Range colRange, T padValue)
+        {
+            _center = center;
+            _rowRange = rowRange;
+            _colRange = colRange;
+            _padValue = padValue;
+        }
+
+        public Tensor<T> Extract(Tensor<T> target)
+        {
+            var extracted = target[_rowRange, _colRange];
+
+            var result = Tensor<T>.Full(_padValue, 3, 3);
+
+            // 抽出した領域を結果配列の適切な位置に配置
+            var resultStartRow = 1 - (_center.row - _rowRange.Start.Value);
+            var resultStartCol = 1 - (_center.col - _colRange.Start.Value);
+            result[resultStartRow..(resultStartRow + extracted.Size(0)), resultStartCol..(resultStartCol + extracted.Size(1))] = extracted;
+            return result;
+        }
+    }
+
     public class TensorLabel
     {
         private Tensor<int> _label;
