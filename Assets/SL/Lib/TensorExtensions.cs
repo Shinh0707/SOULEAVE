@@ -421,6 +421,11 @@ namespace SL.Lib
             }
             return true;
         }
+
+        public static int BoolSum(this Tensor<bool> condition)
+        {
+            return condition.ArgWhere().Count();
+        }
     }
     public static class TensorPeakDetection
     {

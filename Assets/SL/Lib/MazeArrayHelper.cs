@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static SL.Lib.TensorPadding;
-using Random = System.Random;
+using static SL.Lib.SLSequential;
 
 namespace SL.Lib
 {
@@ -118,20 +118,41 @@ namespace SL.Lib
 
             return equivalenceTable[label];
         }
+
+        public enum AreaMaskSelectMode
+        {
+            MAX,
+            MIN,
+            RANDOM
+        }
+
+        public (Tensor<bool>, int) GetAreaMask(AreaMaskSelectMode areaMaskSelectMode)
+        {
+            int selectedLabel = 0;
+            if (areaMaskSelectMode == AreaMaskSelectMode.RANDOM)
+            {
+                selectedLabel = SelectRandom(_labelKinds);
+            }
+            else
+            {
+                var areaSizes = _labelKinds.Select(label => (_label == label).BoolSum());
+                if(areaMaskSelectMode == AreaMaskSelectMode.MAX)
+                {
+                    var maxAreaSize = areaSizes.Max();
+                    selectedLabel = _labelKinds[SelectRandomIndex(areaSizes, maxAreaSize)];
+                }
+                else if(areaMaskSelectMode == AreaMaskSelectMode.MIN)
+                {
+                    var minAreaSize = areaSizes.Min();
+                    selectedLabel = _labelKinds[SelectRandomIndex(areaSizes, minAreaSize)];
+                }
+            }
+            return (_label == selectedLabel, selectedLabel);
+        }
     }
 
     public class MazeCreater
     {
-        private static Random _random;
-        public static Random Random
-        {
-            get
-            {
-                return _random ??= new Random();
-            }
-        }
-
-        public static T SelectRandom<T>(List<T> pool) => pool[Random.Next(pool.Count)];
         public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out int directIndex) where T : IComparable<T>
         {
             var selectMask = mask & (field == searchValue);
@@ -144,6 +165,8 @@ namespace SL.Lib
             directIndex = 0;
             return false;
         }
+
+        
     }
 
     public class MazeArrayHelper
@@ -324,6 +347,19 @@ namespace SL.Lib
 
             tensorLabel.ApplyEachLabel<float>(Norm);
             return (maxPeaks, minPeaks, normalizedPeak);
+        }
+    }
+
+    internal class SLSequential
+    {
+        private static System.Random _random;
+        public static System.Random Random => _random ??= new System.Random();
+        public static T SelectRandom<T>(List<T> pool) => pool[Random.Next(pool.Count)];
+        public static T SelectRandom<T>(T[] pool) => pool[Random.Next(pool.Length)];
+        public static int SelectRandomIndex<T>(IEnumerable<T> pool, T value) where T : IComparable<T>
+        {
+            var selectList = pool.Select((v,i) => (v,i)).Where((v) => v.v.Equals(value));
+            return SelectRandom(selectList.Select((v) => v.i).ToList());
         }
     }
 }
