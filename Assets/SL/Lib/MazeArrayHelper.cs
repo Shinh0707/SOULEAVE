@@ -225,7 +225,8 @@ namespace SL.Lib
     {
         private static List<Tensor<float>> _rotMasks;
         private static Tensor<int> _rotLabel;
-        private static Tensor<float> _surroundMask;
+        private static Tensor<bool> _surroundMask;
+        private static List<int> _surrondMaskIndices;
         private static Tensor<float> _neighborMask;
         private static Tensor<float> _deltaMask;
         
@@ -255,9 +256,13 @@ namespace SL.Lib
                     {
                         s1 = s1.Rotate90();
                         s2 = s2.Rotate90();
-                        RotMasks.Add(s1);
-                        RotMasks.Add(s2);
+                        _rotMasks.Add(s1);
+                        _rotMasks.Add(s2);
                     }
+                }
+                foreach (var s in _rotMasks)
+                {
+                    s.MakeReadOnly();
                 }
                 return _rotMasks;
             }
@@ -276,16 +281,24 @@ namespace SL.Lib
             }
         }
 
-        public static Tensor<float> SurroundMask
+        public static Tensor<bool> SurroundMask
         {
             get
             {
-                return _surroundMask ??= Tensor<float>.FromArray(new[,]
+                return _surroundMask ??= Tensor<bool>.FromArray(new[,]
                 {
-                    { 1f, 1f, 1f },
-                    { 1f, 0f, 1f },
-                    { 1f, 1f, 1f }
+                    { true, true,true },
+                    { true, false, true },
+                    { true, true, true }
                 }).AsReadOnly();
+            }
+        }
+
+        public static List<int> SurroundMaskIndice
+        {
+            get
+            {
+                return _surrondMaskIndices ??= SurroundMask.ArgWhere();
             }
         }
 
@@ -313,6 +326,14 @@ namespace SL.Lib
                     { 0f, 1f, 0f }
                 }).AsReadOnly();
             }
+        }
+
+        public static bool IsPotentialSplitter(Tensor<float> extractedField)
+        {
+            if (extractedField[1, 1] == 1f) return false;
+            var fieldMask = (extractedField == 1f) & SurroundMask;
+            if (fieldMask.All()) return false;
+
         }
 
         public static Tensor<float> NeighborScore(Tensor<float> field)
