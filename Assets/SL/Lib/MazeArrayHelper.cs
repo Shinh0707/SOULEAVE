@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static SL.Lib.SLSequential;
+using static SL.Lib.SLRandom;
 
 namespace SL.Lib
 {
@@ -352,6 +352,15 @@ namespace SL.Lib
             }
             return (field, tensorLabel);
         }
+
+        public static (Tensor<int>, TensorLabel) AutoSetting(Tensor<int> field, int minSize, int numIterations, TensorLabel tensorLabel)
+        {
+            for(int i = 0; i < numIterations; i++)
+            {
+                (field, tensorLabel) = AutoSet(field, Choice(new[] { MazeBaseTile.ROUTE, MazeBaseTile.WALL }, new[] { 0.1f, 1.0f }), minSize, tensorLabel);
+            }
+            return (field, tensorLabel);
+        }
         
     }
 
@@ -569,7 +578,7 @@ namespace SL.Lib
         }
     }
 
-    internal class SLSequential
+    internal class SLRandom
     {
         private static System.Random _random;
         public static System.Random Random => _random ??= new System.Random();
@@ -580,5 +589,33 @@ namespace SL.Lib
             var selectList = pool.Select((v,i) => (v,i)).Where((v) => v.v.Equals(value));
             return SelectRandom(selectList.Select((v) => v.i).ToList());
         }
+        public static T Choice<T>(T[] pool, float[] weights)
+        {
+            if (pool == null || weights == null || pool.Length != weights.Length || pool.Length == 0)
+            {
+                throw new ArgumentException("Invalid input: pool and weights must be non-null, have the same length, and contain at least one element.");
+            }
+
+            float totalWeight = weights.Sum();
+            if (totalWeight <= 0)
+            {
+                throw new ArgumentException("Total weight must be positive.");
+            }
+
+            float randomValue = (float)_random.NextDouble() * totalWeight;
+
+            for (int i = 0; i < pool.Length; i++)
+            {
+                if (randomValue < weights[i])
+                {
+                    return pool[i];
+                }
+                randomValue -= weights[i];
+            }
+
+            // This should never happen if the weights sum to totalWeight
+            return pool[pool.Length - 1];
+        }
+        public static T Choice<T>(T[] pool) => SelectRandom(pool);
     }
 }
