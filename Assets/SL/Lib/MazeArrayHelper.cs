@@ -361,6 +361,12 @@ namespace SL.Lib
             }
             return (field, tensorLabel);
         }
+
+        public static (Tensor<int>, TensorLabel) CreatePlainMaze(int width, int height, int minSize)
+        {
+            var maze = Tensor<int>.Zeros(width, height);
+            return AutoSetting(maze, minSize, 300, new TensorLabel(maze == 0));
+        }
         
     }
 
