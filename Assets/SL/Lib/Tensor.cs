@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace SL.Lib
 {
@@ -35,7 +36,15 @@ namespace SL.Lib
         }
         public T item => _data[Offset];
         public bool IsScalar => _data.Length == 1;
-        public int Size() => _data.Length;
+        public int Size()
+        {
+            int size = 1;
+            for (int i = 0; i < Shape.Length; i++)
+            {
+                size *= Shape[i];
+            }
+            return size;
+        }
 
         public int Size(int dim) => Shape[dim];
         public bool MatchShape(int[] shape) => Shape.SequenceEqual(shape);
@@ -79,14 +88,14 @@ namespace SL.Lib
         {
             get
             {
-                return Stack(indices.Select(index => this[index]),0);
+                return Stack(indices.Select(index => this[index]), 0);
             }
             set
             {
                 CheckReadOnly();
-                if (value[0].IsScalar)
+                if (value.IsScalar)
                 {
-                    foreach(var indice in indices)
+                    foreach (var indice in indices)
                     {
                         this[indice] = value.item;
                     }
@@ -115,7 +124,7 @@ namespace SL.Lib
                 for (int i = 0; i < _data.Length; i++)
                 {
                     if (mask._data[i])
-                        selectedIndices.Add(GetIndices(i));
+                        selectedIndices.Add(mask.GetIndices(i));
                 }
 
                 return this[selectedIndices];
@@ -130,128 +139,256 @@ namespace SL.Lib
                 for (int i = 0; i < _data.Length; i++)
                 {
                     if (mask._data[i])
-                        selectedIndices.Add(GetIndices(i));
+                        selectedIndices.Add(mask.GetIndices(i));
                 }
-
 
                 this[selectedIndices] = value;
             }
         }
 
-        /// <summary>
-        /// Indexer that supports advanced indexing operations using Indice objects.
-        /// </summary>
-        /// <param name="indices">The indices to access, represented as Indice objects.</param>
-        /// <returns>A tensor or a single element, depending on the indexing.</returns>
+        // インデックス計算を最適化
+        private int CalculateFlatIndex(Indice[] indices)
+        {
+            int flatIndex = 0;
+            for (int i = 0; i < indices.Length; i++)
+            {
+                int index = indices[i].GetIndices(Shape[i])[0];
+                flatIndex += index * Strides[i];
+            }
+            return flatIndex;
+        }
+
         public Tensor<T> this[params Indice[] indices]
         {
             get
             {
-                if (indices == null || indices.Length == 0)
-                    throw new ArgumentException("Indices cannot be null or empty.");
-
-                if (indices.Length > Shape.Length)
-                    throw new ArgumentException("Too many indices for tensor shape.");
-
                 List<int[]> allIndices = new List<int[]>();
-                List<int> newShape = new List<int>();
+                int[] newShape = new int[Shape.Length];
+                int totalSize = 1;
 
-                for (int i = 0; i < indices.Length; i++)
+                for (int i = 0; i < Shape.Length; i++)
                 {
-                    int[] dimIndices = indices[i].GetIndices(Shape[i]);
-                    allIndices.Add(dimIndices);
-                    if (indices[i].Type != Indice.IndiceType.Single)
+                    if (i < indices.Length && indices[i] != null)
                     {
-                        newShape.Add(dimIndices.Length);
+                        int[] dimIndices = indices[i].GetIndices(Shape[i]);
+                        allIndices.Add(dimIndices);
+                        newShape[i] = dimIndices.Length;
                     }
+                    else
+                    {
+                        allIndices.Add(Enumerable.Range(0, Shape[i]).ToArray());
+                        newShape[i] = Shape[i];
+                    }
+                    totalSize *= newShape[i];
                 }
 
-                // If we're selecting a single element, return it directly
-                if (allIndices.All(arr => arr.Length == 1) && allIndices.Count == Shape.Length)
+                // 最適化: 単一要素の場合
+                if (totalSize == 1)
                 {
-                    return this[allIndices.Select(arr => arr[0]).ToArray()];
+                    int[] singleIndex = allIndices.Select(arr => arr[0]).ToArray();
+                    return new Tensor<T>(new T[] { _data[GetFlatIndex(singleIndex)] }, new int[] { 1 });
                 }
 
-                // Otherwise, create a new tensor with the selected elements
-                for (int i = indices.Length; i < Shape.Length; i++)
-                {
-                    allIndices.Add(Enumerable.Range(0, Shape[i]).ToArray());
-                    newShape.Add(Shape[i]);
-                }
-
-                T[] newData = new T[newShape.Aggregate(1, (a, b) => a * b)];
+                T[] newData = new T[totalSize];
                 int[] currentIndices = new int[Shape.Length];
 
-                GetSubTensor(allIndices, newData, currentIndices, 0, 0);
+                CopyData(allIndices, newData, currentIndices, 0, 0);
 
-                return new Tensor<T>(newData, newShape.ToArray());
+                return new Tensor<T>(newData, newShape);
             }
             set
             {
-                throw new NotImplementedException("Setting values using advanced indexing is not yet implemented.");
+                List<int[]> allIndices = new List<int[]>();
+                int[] assignShape = new int[Shape.Length];
+                int totalSize = 1;
+
+                for (int i = 0; i < Shape.Length; i++)
+                {
+                    if (i < indices.Length && indices[i] != null)
+                    {
+                        int[] dimIndices = indices[i].GetIndices(Shape[i]);
+                        allIndices.Add(dimIndices);
+                        assignShape[i] = dimIndices.Length;
+                    }
+                    else
+                    {
+                        allIndices.Add(Enumerable.Range(0, Shape[i]).ToArray());
+                        assignShape[i] = Shape[i];
+                    }
+                    totalSize *= assignShape[i];
+                }
+
+                // 特別処理: IsScalar が true のテンソルが set される場合
+                if (value.IsScalar)
+                {
+                    T scalarValue = value._data[0];
+                    SetScalarData(allIndices, scalarValue, new int[Shape.Length], 0);
+                    return;
+                }
+
+                if (!assignShape.SequenceEqual(value.Shape))
+                {
+                    throw new ArgumentException("Assigned value shape does not match the indexed shape.");
+                }
+
+                // 最適化: 単一要素の割り当ての場合
+                if (totalSize == 1)
+                {
+                    int[] singleIndex = allIndices.Select(arr => arr[0]).ToArray();
+                    _data[GetFlatIndex(singleIndex)] = value._data[0];
+                    return;
+                }
+
+                int[] currentIndices = new int[Shape.Length];
+                SetData(allIndices, value._data, currentIndices, 0, 0);
             }
         }
 
-        private void GetSubTensor(List<int[]> allIndices, T[] newData, int[] currentIndices, int depth, int newDataIndex)
+        private void CopyData(List<int[]> allIndices, T[] newData, int[] currentIndices, int dimension, int newDataIndex)
         {
-            if (depth == allIndices.Count)
+            if (dimension == Shape.Length)
             {
-                newData[newDataIndex] = this[currentIndices].item;
+                int flatIndex = GetFlatIndex(currentIndices);
+                newData[newDataIndex] = _data[flatIndex];
                 return;
             }
 
-            foreach (int index in allIndices[depth])
+            for (int i = 0; i < allIndices[dimension].Length; i++)
             {
-                currentIndices[depth] = index;
-                GetSubTensor(allIndices, newData, currentIndices, depth + 1, newDataIndex);
-                newDataIndex += allIndices.Skip(depth + 1).Aggregate(1, (a, arr) => a * arr.Length);
+                currentIndices[dimension] = allIndices[dimension][i];
+                CopyData(allIndices, newData, currentIndices, dimension + 1, newDataIndex);
+                newDataIndex += allIndices.Skip(dimension + 1).Aggregate(1, (a, arr) => a * arr.Length);
             }
         }
-        private void CopyData(Tensor<T> src, Tensor<T> dst, int[] shape, int[] dstOffset, int srcDim = 0, int dstDim = 0, int srcIndex = 0, int dstIndex = 0)
+
+        private void SetData(List<int[]> allIndices, T[] valueData, int[] currentIndices, int dimension, int valueDataIndex)
         {
-            if (srcDim == shape.Length)
+            if (dimension == Shape.Length)
             {
-                dst._data[dst.Offset + dstIndex] = src._data[src.Offset + srcIndex];
+                int flatIndex = GetFlatIndex(currentIndices);
+                _data[flatIndex] = valueData[valueDataIndex];
                 return;
             }
 
-            for (int i = 0; i < shape[srcDim]; i++)
+            for (int i = 0; i < allIndices[dimension].Length; i++)
             {
-                CopyData(src, dst, shape, dstOffset,
-                         srcDim + 1, dstDim + 1,
-                         srcIndex + i * src.Strides[srcDim],
-                         dstIndex + (i + dstOffset[dstDim]) * dst.Strides[dstDim]);
+                currentIndices[dimension] = allIndices[dimension][i];
+                SetData(allIndices, valueData, currentIndices, dimension + 1, valueDataIndex);
+                valueDataIndex += allIndices.Skip(dimension + 1).Aggregate(1, (a, arr) => a * arr.Length);
             }
         }
 
-        public Tensor<T> Reshape(params int[] newShape)
+        private void SetScalarData(List<int[]> allIndices, T scalarValue, int[] currentIndices, int dimension)
         {
-            if (newShape.Aggregate(1, (a, b) => a * b) != Shape.Aggregate(1, (a, b) => a * b))
-                throw new ArgumentException("New shape must have the same number of elements as the current shape.");
+            if (dimension == Shape.Length)
+            {
+                int flatIndex = GetFlatIndex(currentIndices);
+                _data[flatIndex] = scalarValue;
+                return;
+            }
 
-            if (IsView)
+            for (int i = 0; i < allIndices[dimension].Length; i++)
             {
-                // ビューの場合は新しいテンソルを作成
-                var newData = new T[newShape.Aggregate(1, (a, b) => a * b)];
-                CopyData(this, new Tensor<T>(newData, newShape), Shape, new int[Shape.Length]);
-                return new Tensor<T>(newData, newShape);
+                currentIndices[dimension] = allIndices[dimension][i];
+                SetScalarData(allIndices, scalarValue, currentIndices, dimension + 1);
             }
-            else
+        }
+
+        public int GetFlatIndex(int[] indices)
+        {
+            if (indices.Length != Shape.Length)
             {
-                // ビューでない場合は同じデータを共有
-                return new Tensor<T>(_data, newShape, ComputeStrides(newShape), 0, false, IsReadOnly);
+                throw new ArgumentException("Number of indices must match the number of dimensions in the tensor.");
             }
+
+            int flatIndex = 0;
+            int multiplier = 1;
+
+            for (int i = Shape.Length - 1; i >= 0; i--)
+            {
+                if (indices[i] < 0 || indices[i] >= Shape[i])
+                {
+                    throw new ArgumentOutOfRangeException(nameof(indices), $"Index at dimension {i} is out of range.");
+                }
+
+                flatIndex += indices[i] * multiplier;
+                multiplier *= Shape[i];
+            }
+
+            return flatIndex;
         }
 
         public Indice[] GetIndices(int flatIndex)
         {
+            if (flatIndex < 0 || flatIndex >= Size())
+            {
+                throw new ArgumentOutOfRangeException(nameof(flatIndex), "Flat index is out of range.");
+            }
+
             Indice[] indices = new Indice[Shape.Length];
             for (int i = Shape.Length - 1; i >= 0; i--)
             {
-                indices[i] = flatIndex % Shape[i];
-                flatIndex /= Shape[i];
+                indices[i] = flatIndex / Strides[i];
+                flatIndex %= Strides[i];
             }
             return indices;
+        }
+        /// <summary>
+        /// Returns the apparent position (i.e., the position in the multidimensional array)
+        /// for a given flat index.
+        /// </summary>
+        /// <param name="flatIndex">The flat index to convert.</param>
+        /// <returns>An array representing the position in each dimension.</returns>
+        public int[] GetApparentPosition(int flatIndex)
+        {
+            if (flatIndex < 0 || flatIndex >= Size())
+            {
+                throw new ArgumentOutOfRangeException(nameof(flatIndex), "Flat index is out of range.");
+            }
+
+            int[] position = new int[Shape.Length];
+            int remainingIndex = flatIndex;
+
+            for (int i = Shape.Length - 1; i >= 0; i--)
+            {
+                position[i] = remainingIndex % Shape[i];
+                remainingIndex /= Shape[i];
+            }
+
+            return position;
+        }
+
+        /// <summary>
+        /// Returns the apparent position (i.e., the position in the multidimensional array)
+        /// for a given set of indices.
+        /// </summary>
+        /// <param name="indices">The indices to convert.</param>
+        /// <returns>An array representing the position in each dimension.</returns>
+        public int[] GetApparentPosition(params Indice[] indices)
+        {
+            if (indices.Length != Shape.Length)
+            {
+                throw new ArgumentException("Number of indices must match the number of dimensions in the tensor.");
+            }
+
+            int[] position = new int[Shape.Length];
+
+            for (int i = 0; i < Shape.Length; i++)
+            {
+                int[] dimIndices = indices[i].GetIndices(Shape[i]);
+                if (dimIndices.Length == 0)
+                {
+                    throw new ArgumentException($"Invalid index for dimension {i}");
+                }
+                position[i] = dimIndices[0] % Shape[i];  // Ensure the index wraps around if it's out of bounds
+            }
+
+            return position;
+        }
+        // Method to help with debugging
+        public string PositionToString(int[] position)
+        {
+            return $"({string.Join(", ", position)})";
         }
 
         // ScalarからTensorへの暗黙的な変換
@@ -289,7 +426,57 @@ namespace SL.Lib
 
         public override string ToString()
         {
-            return $"Tensor<{typeof(T).Name}>{(IsView ? " (View)" : "")} Shape: [{string.Join(", ", Shape)}], Strides: [{string.Join(", ", Strides)}], Offset: {Offset}";
+            StringBuilder sb = new StringBuilder();
+
+            // テンソルの基本情報を表示
+            sb.AppendLine($"Tensor<{typeof(T).Name}>");
+            sb.AppendLine($"Shape: [{string.Join(", ", Shape)}]");
+            sb.AppendLine($"Strides: [{string.Join(", ", Strides)}]");
+            sb.AppendLine($"Data:");
+
+            // データを再帰的に表示
+            AppendTensorData(sb, new int[Shape.Length], 0);
+
+            return sb.ToString();
+        }
+
+        private void AppendTensorData(StringBuilder sb, int[] currentIndices, int depth)
+        {
+            if (depth == Shape.Length)
+            {
+                // 最下層に到達したら、値を追加
+                int flatIndex = 0;
+                for (int i = 0; i < Shape.Length; i++)
+                {
+                    flatIndex += currentIndices[i] * Strides[i];
+                }
+                sb.Append(_data[flatIndex]);
+                return;
+            }
+
+            sb.Append(new string(' ', depth * 2) + "[");
+
+            for (int i = 0; i < Shape[depth]; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                    if (depth == Shape.Length - 2)
+                    {
+                        sb.AppendLine();
+                        sb.Append(new string(' ', depth * 2 + 1));
+                    }
+                }
+
+                currentIndices[depth] = i;
+                AppendTensorData(sb, currentIndices, depth + 1);
+            }
+
+            sb.Append("]");
+            if (depth < Shape.Length - 1)
+            {
+                sb.AppendLine();
+            }
         }
     }
 }

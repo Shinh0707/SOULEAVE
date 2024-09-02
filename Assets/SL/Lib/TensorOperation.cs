@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace SL.Lib
 {
@@ -40,7 +41,7 @@ namespace SL.Lib
         /// <returns>True if any element is true, false otherwise.</returns>
         public bool Any()
         {
-            foreach(var d in _data)
+            foreach (var d in _data)
             {
                 if (CastValue<bool>(d)) return true;
             }
@@ -190,14 +191,31 @@ namespace SL.Lib
             }
             return new Tensor<TResult>(newData, Shape);
         }
-
         private T GetBroadcastValue(Indice[] indices)
         {
+            if (indices.Length != Shape.Length)
+            {
+                throw new ArgumentException("Number of indices must match the number of dimensions in the tensor.");
+            }
+
             int[] adjustedIndices = new int[Shape.Length];
             for (int i = 0; i < Shape.Length; i++)
             {
-                adjustedIndices[i] = Shape[i] == 1 ? 0 : indices[i].GetIndices(Shape[i])[indices.Length - Shape.Length + i];
+                if (Shape[i] == 1)
+                {
+                    adjustedIndices[i] = 0;
+                }
+                else
+                {
+                    int[] dimIndices = indices[i].GetIndices(Shape[i]);
+                    if (dimIndices.Length == 0)
+                    {
+                        throw new ArgumentException($"Invalid index for dimension {i}");
+                    }
+                    adjustedIndices[i] = dimIndices[0] % Shape[i];  // Use modulo to handle wrap-around
+                }
             }
+
             return this[adjustedIndices].item;
         }
 
@@ -206,18 +224,18 @@ namespace SL.Lib
             int rank = Math.Max(shapeA.Length, shapeB.Length);
             int[] result = new int[rank];
 
-            for (int i = 0; i < rank; i++)
+            for (int i = 1; i <= rank; i++)
             {
-                int dimA = i < shapeA.Length ? shapeA[shapeA.Length - 1 - i] : 1;
-                int dimB = i < shapeB.Length ? shapeB[shapeB.Length - 1 - i] : 1;
+                int dimA = i <= shapeA.Length ? shapeA[^i] : 1;
+                int dimB = i <= shapeB.Length ? shapeB[^i] : 1;
 
                 if (dimA == dimB || dimA == 1 || dimB == 1)
                 {
-                    result[rank - 1 - i] = Math.Max(dimA, dimB);
+                    result[^i] = Math.Max(dimA, dimB);
                 }
                 else
                 {
-                    throw new ArgumentException("Shapes are not compatible for broadcasting.");
+                    throw new ArgumentException($"Shapes are not compatible for broadcasting at dimension {rank - i}. DimA: {dimA}, DimB: {dimB}");
                 }
             }
 
@@ -448,31 +466,31 @@ namespace SL.Lib
         /// <returns>A new tensor containing the stacked tensors.</returns>
         public static Tensor<T> Stack(IEnumerable<Tensor<T>> tensors, int dim)
         {
-            if (tensors == null || tensors.Count() == 0)
+            if (tensors == null || !tensors.Any())
                 throw new ArgumentException("The list of tensors cannot be null or empty.", nameof(tensors));
 
-            if (dim < 0 || dim > tensors.First().Shape.Length)
+            var firstTensor = tensors.First();
+            if (dim < 0 || dim > firstTensor.Shape.Length)
                 throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
 
             // Validate that all tensors have the same shape
-            var firstShape = tensors.First().Shape;
-            if (!tensors.All(t => t.Shape.SequenceEqual(firstShape)))
+            if (!tensors.All(t => t.Shape.SequenceEqual(firstTensor.Shape)))
                 throw new ArgumentException("All tensors must have the same shape.");
 
-            int[] newShape = new int[firstShape.Length + 1];
-            Array.Copy(firstShape, 0, newShape, 0, dim);
+            int[] newShape = new int[firstTensor.Shape.Length + 1];
+            Array.Copy(firstTensor.Shape, 0, newShape, 0, dim);
             newShape[dim] = tensors.Count();
-            Array.Copy(firstShape, dim, newShape, dim + 1, firstShape.Length - dim);
+            Array.Copy(firstTensor.Shape, dim, newShape, dim + 1, firstTensor.Shape.Length - dim);
 
             Tensor<T> result = Empty(newShape);
 
-            int[] indices = new int[newShape.Length];
+            var tensorsList = tensors.ToList();
             for (int i = 0; i < result.Size(); i++)
             {
-                result.GetIndices(i, indices);
+                var indices = result.GetApparentPosition(i);
                 int tensorIndex = indices[dim];
-                indices[dim] = 0;
-                result._data[i] = tensors.ElementAt(tensorIndex)[indices].item;
+                indices = indices.Take(dim).Concat(indices.Skip(dim + 1)).ToArray();
+                result._data[i] = tensorsList[tensorIndex][indices].item;
             }
 
             return result;
@@ -504,12 +522,11 @@ namespace SL.Lib
             Tensor<T> result = Empty(newShape);
 
             int offset = 0;
-            int[] indices = new int[newShape.Length];
             for (int i = 0; i < tensors.Count; i++)
             {
                 for (int j = 0; j < tensors[i].Size(); j++)
                 {
-                    tensors[i].GetIndices(j, indices);
+                    var indices = tensors[i].GetApparentPosition(j);
                     indices[dim] += offset;
                     result[indices] = tensors[i]._data[j];
                 }
@@ -538,10 +555,9 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
-            int[] indices = new int[newShape.Length];
             for (int i = 0; i < result.Size(); i++)
             {
-                result.GetIndices(i, indices);
+                var indices = result.GetApparentPosition(i);
                 bool isInOriginalTensor = true;
                 int[] originalIndices = new int[indices.Length];
 
@@ -560,30 +576,24 @@ namespace SL.Lib
 
             return result;
         }
+
         /// <summary>
         /// Pads a tensor with a specified padding mode.
         /// </summary>
         /// <param name="padding">A specifying the padding for each dimension.</param>
         /// <param name="padMode">The padding mode to use.</param>
         /// <returns>A new padded tensor.</returns>
-        public Tensor<T> Pad(int padding, PadMode<T> padMode) => Pad(Shape.Select(s => (padding, padding)).ToList(), padMode);
+        public Tensor<T> Pad(int padding, PadMode<T> padMode) =>
+            Pad(Shape.Select(s => (padding, padding)).ToList(), padMode);
+
         /// <summary>
         /// Pads a tensor with a specified padding mode.
         /// </summary>
         /// <param name="paddings">A specifying the padding for each dimension.</param>
         /// <param name="padMode">The padding mode to use.</param>
         /// <returns>A new padded tensor.</returns>
-        public Tensor<T> Pad((int leftPadding, int rightPadding) paddings, PadMode<T> padMode) => Pad(Shape.Select(s => (paddings.leftPadding, paddings.rightPadding)).ToList(), padMode);
-
-        // Helper method to get indices from a flat index
-        private void GetIndices(int flatIndex, int[] indices)
-        {
-            for (int i = indices.Length - 1; i >= 0; i--)
-            {
-                indices[i] = flatIndex % Shape[i];
-                flatIndex /= Shape[i];
-            }
-        }
+        public Tensor<T> Pad((int leftPadding, int rightPadding) paddings, PadMode<T> padMode) =>
+            Pad(Shape.Select(s => (paddings.leftPadding, paddings.rightPadding)).ToList(), padMode);
     }
 
     /*
@@ -593,125 +603,6 @@ namespace SL.Lib
      */
     public partial class Tensor<T> where T : IComparable<T>
     {
-        /// <summary>
-        /// Computes the minimum value along the specified dimensions.
-        /// </summary>
-        /// <param name="dims">The dimensions along which to compute the minimum. If null, computes the global minimum.</param>
-        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
-        /// <returns>A new tensor containing the minimum values.</returns>
-        public Tensor<T> Min(int[] dims, bool keepDims = false)
-        {
-            return ReduceOperation(dims, keepDims, (a, b) => a.CompareTo(b) < 0 ? a : b);
-        }
-        /// <summary>
-        /// Computes the minimum value.
-        /// </summary>
-        /// <returns>The minimum value.</returns>
-        public T Min()
-        {
-            return ReduceOperation(null, false, (a, b) => a.CompareTo(b) < 0 ? a : b).item;
-        }
-
-        /// <summary>
-        /// Computes the maximum value along the specified dimensions.
-        /// </summary>
-        /// <param name="dims">The dimensions along which to compute the maximum. If null, computes the global maximum.</param>
-        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
-        /// <returns>A new tensor containing the maximum values.</returns>
-        public Tensor<T> Max(int[] dims, bool keepDims = false)
-        {
-            return ReduceOperation(dims, keepDims, (a, b) => a.CompareTo(b) > 0 ? a : b);
-        }
-        /// <summary>
-        /// Computes the maximum value.
-        /// </summary>
-        /// <returns>The maximum value.</returns>
-        public T Max()
-        {
-            return ReduceOperation(null, false, (a, b) => a.CompareTo(b) > 0 ? a : b).item;
-        }
-
-        /// <summary>
-        /// Computes the sum along the specified dimensions.
-        /// </summary>
-        /// <param name="dims">The dimensions along which to compute the sum. If null, computes the global sum.</param>
-        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
-        /// <returns>A new tensor containing the sum values.</returns>
-        public Tensor<T> Sum(int[] dims, bool keepDims = false)
-        {
-            return ReduceOperation(dims, keepDims, NumericOperations.Add);
-        }
-        /// <summary>
-        /// Computes the sum.
-        /// </summary>
-        /// <returns>The sum value.</returns>
-        public T Sum()
-        {
-            return ReduceOperation(null, false, NumericOperations.Add).item;
-        }
-
-        /// <summary>
-        /// Computes the mean along the specified dimensions.
-        /// </summary>
-        /// <param name="dims">The dimensions along which to compute the mean. If null, computes the global mean.</param>
-        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
-        /// <returns>A new tensor containing the mean values.</returns>
-        public Tensor<float> Mean(int[] dims, bool keepDims = false)
-        {
-            Tensor<T> sum = Sum(dims, keepDims);
-            int count = dims == null ? Size() : dims.Aggregate(1, (acc, dim) => acc * Shape[dim]);
-            return sum.Map(x => Convert.ToSingle(x) / count);
-        }
-        /// <summary>
-        /// Computes the mean.
-        /// </summary>
-        /// <returns>The mean values.</returns>
-        public float Mean()
-        {
-            T sum = Sum();
-            int count = Size();
-            return Convert.ToSingle(sum)/count;
-        }
-
-        /// <summary>
-        /// Computes the median along the specified dimensions.
-        /// </summary>
-        /// <param name="dims">The dimensions along which to compute the median. If null, computes the global median.</param>
-        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
-        /// <returns>A new tensor containing the median values.</returns>
-        public Tensor<float> Median(int[] dims = null, bool keepDims = false)
-        {
-            // Implementation for median operation
-            throw new NotImplementedException("Median operation is not yet implemented.");
-        }
-
-        /// <summary>
-        /// Computes the difference along the specified dimension.
-        /// </summary>
-        /// <param name="dim">The dimension along which to compute the difference.</param>
-        /// <returns>A new tensor containing the differences.</returns>
-        public Tensor<T> Diff(int dim = 0)
-        {
-            if (dim < 0 || dim >= Shape.Length)
-                throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
-
-            int[] newShape = (int[])Shape.Clone();
-            newShape[dim]--;
-
-            Tensor<T> result = Empty(newShape);
-
-            int[] indices = new int[Shape.Length];
-            for (int i = 0; i < result.Size(); i++)
-            {
-                result.GetIndices(i, indices);
-                int[] nextIndices = (int[])indices.Clone();
-                nextIndices[dim]++;
-                result._data[i] = NumericOperations.Subtract(this[nextIndices], this[indices]).item;
-            }
-
-            return result;
-        }
-
         /// <summary>
         /// Clips the values in the tensor to be between the specified minimum and maximum values.
         /// </summary>
@@ -761,6 +652,101 @@ namespace SL.Lib
             float scaledMean = scaled.Mean();
             return scaled.Map(x => x - scaledMean);
         }
+        /// <summary>
+        /// Computes the minimum value along the specified dimensions.
+        /// </summary>
+        /// <param name="dims">The dimensions along which to compute the minimum. If null, computes the global minimum.</param>
+        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
+        /// <returns>A new tensor containing the minimum values.</returns>
+        public Tensor<T> Min(int[] dims = null, bool keepDims = false)
+        {
+            return ReduceOperation(dims, keepDims, (a, b) => a.CompareTo(b) < 0 ? a : b);
+        }
+
+        /// <summary>
+        /// Computes the minimum value.
+        /// </summary>
+        /// <returns>The minimum value.</returns>
+        public T Min() => Min(null, false).item;
+
+        /// <summary>
+        /// Computes the maximum value along the specified dimensions.
+        /// </summary>
+        /// <param name="dims">The dimensions along which to compute the maximum. If null, computes the global maximum.</param>
+        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
+        /// <returns>A new tensor containing the maximum values.</returns>
+        public Tensor<T> Max(int[] dims = null, bool keepDims = false)
+        {
+            return ReduceOperation(dims, keepDims, (a, b) => a.CompareTo(b) > 0 ? a : b);
+        }
+
+        /// <summary>
+        /// Computes the maximum value.
+        /// </summary>
+        /// <returns>The maximum value.</returns>
+        public T Max() => Max(null, false).item;
+
+        /// <summary>
+        /// Computes the sum along the specified dimensions.
+        /// </summary>
+        /// <param name="dims">The dimensions along which to compute the sum. If null, computes the global sum.</param>
+        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
+        /// <returns>A new tensor containing the sum values.</returns>
+        public Tensor<T> Sum(int[] dims = null, bool keepDims = false)
+        {
+            return ReduceOperation(dims, keepDims, NumericOperations.Add);
+        }
+
+        /// <summary>
+        /// Computes the sum.
+        /// </summary>
+        /// <returns>The sum value.</returns>
+        public T Sum() => Sum(null, false).item;
+
+        /// <summary>
+        /// Computes the mean along the specified dimensions.
+        /// </summary>
+        /// <param name="dims">The dimensions along which to compute the mean. If null, computes the global mean.</param>
+        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
+        /// <returns>A new tensor containing the mean values.</returns>
+        public Tensor<float> Mean(int[] dims = null, bool keepDims = false)
+        {
+            Tensor<T> sum = Sum(dims, keepDims);
+            int count = dims == null ? Size() : dims.Aggregate(1, (acc, dim) => acc * Shape[dim]);
+            return sum.Map(x => Convert.ToSingle(x) / count);
+        }
+
+        /// <summary>
+        /// Computes the mean.
+        /// </summary>
+        /// <returns>The mean value.</returns>
+        public float Mean() => Convert.ToSingle(Sum()) / Size();
+
+        /// <summary>
+        /// Computes the difference along the specified dimension.
+        /// </summary>
+        /// <param name="dim">The dimension along which to compute the difference.</param>
+        /// <returns>A new tensor containing the differences.</returns>
+        public Tensor<T> Diff(int dim = 0)
+        {
+            if (dim < 0 || dim >= Shape.Length)
+                throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
+
+            int[] newShape = (int[])Shape.Clone();
+            newShape[dim]--;
+
+            Tensor<T> result = Empty(newShape);
+
+            for (int i = 0; i < result.Size(); i++)
+            {
+                var indices = result.GetApparentPosition(i);
+                var nextIndices = (int[])indices.Clone();
+                nextIndices[dim]++;
+                result._data[i] = NumericOperations.Subtract(this[nextIndices], this[indices]).item;
+            }
+
+            return result;
+        }
 
         private Tensor<T> ReduceOperation(int[] dims, bool keepDims, Func<T, T, T> operation)
         {
@@ -781,13 +767,11 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
-            int[] indices = new int[Shape.Length];
-            int[] resultIndices = new int[newShape.Length];
-
             for (int i = 0; i < Size(); i++)
             {
-                GetIndices(i, indices);
-                int resultIndex = GetResultIndex(indices, dims, keepDims);
+                var indices = GetApparentPosition(i);
+                var resultIndices = GetReducedIndices(indices, dims, keepDims);
+                int resultIndex = result.GetFlatIndex(resultIndices);
 
                 result._data[resultIndex] = operation(result._data[resultIndex], this._data[i]);
             }
@@ -795,9 +779,9 @@ namespace SL.Lib
             return result;
         }
 
-        private int GetResultIndex(int[] indices, int[] dims, bool keepDims)
+        private int[] GetReducedIndices(int[] indices, int[] dims, bool keepDims)
         {
-            int[] resultIndices = keepDims ? new int[indices.Length] : new int[indices.Length - dims.Length];
+            int[] resultIndices = new int[keepDims ? indices.Length : indices.Length - dims.Length];
             int resultDim = 0;
 
             for (int i = 0; i < indices.Length; i++)
@@ -812,21 +796,7 @@ namespace SL.Lib
                 }
             }
 
-            return GetFlatIndex(resultIndices);
-        }
-
-        private int GetFlatIndex(int[] indices)
-        {
-            int flatIndex = 0;
-            int stride = 1;
-
-            for (int i = indices.Length - 1; i >= 0; i--)
-            {
-                flatIndex += indices[i] * stride;
-                stride *= Shape[i];
-            }
-
-            return flatIndex;
+            return resultIndices;
         }
     }
     /// <summary>
@@ -853,17 +823,7 @@ namespace SL.Lib
     public partial class Tensor<T> where T : IComparable<T>
     {
         public bool Is2D => Shape.Length == 2;
-        
-        
 
-        /// <summary>
-        /// Performs 2D convolution on the tensor.
-        /// </summary>
-        /// <typeparam name="TKernel">The type of the kernel tensor.</typeparam>
-        /// <param name="kernel">The kernel tensor to convolve with.</param>
-        /// <param name="convolveMode">The convolution mode.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new tensor with the convolution result.</returns>
         public Tensor<T> Convolve<TKernel>(Tensor<TKernel> kernel, ConvolveMode convolveMode, (int rowDim, int colDim) dims) where TKernel : IComparable<TKernel>
         {
             if (typeof(T) != typeof(TKernel))
@@ -897,13 +857,10 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
-            int[] paddedIndices = new int[Shape.Length];
-            int[] resultIndices = new int[Shape.Length];
-
             for (int i = 0; i < result.Size(); i++)
             {
-                result.GetIndices(i, resultIndices);
-                Array.Copy(resultIndices, paddedIndices, Shape.Length);
+                int[] resultIndices = result.GetApparentPosition(i);
+                int[] paddedIndices = (int[])resultIndices.Clone();
 
                 T sum = NumericOperations.Zero<T>();
                 for (int ki = 0; ki < kernel.Shape[0]; ki++)
@@ -923,25 +880,10 @@ namespace SL.Lib
 
             return result;
         }
-        /// <summary>
-        /// Performs 2D convolution on the tensor.
-        /// </summary>
-        /// <typeparam name="TKernel">The type of the kernel tensor.</typeparam>
-        /// <param name="kernel">The kernel tensor to convolve with.</param>
-        /// <param name="convolveMode">The convolution mode.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new tensor with the convolution result.</returns>
-        public Tensor<T> Convolve<TKernel>(Tensor<TKernel> kernel, ConvolveMode convolveMode=ConvolveMode.VALID) where TKernel : IComparable<TKernel> => Convolve(kernel, convolveMode, (0, 1));
 
-        
+        public Tensor<T> Convolve<TKernel>(Tensor<TKernel> kernel, ConvolveMode convolveMode = ConvolveMode.VALID) where TKernel : IComparable<TKernel>
+            => Convolve(kernel, convolveMode, (0, 1));
 
-        /// <summary>
-        /// Detects peaks in a 2D slice of the tensor.
-        /// </summary>
-        /// <param name="mask">A boolean mask to restrict peak detection.</param>
-        /// <param name="mode">The peak detection mode.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A boolean tensor indicating peak locations.</returns>
         public Tensor<bool> GetPeak2D(Tensor<bool> mask, PeakMode mode, (int rowDim, int colDim) dims)
         {
             if (mask.Shape.Length != Shape.Length || !mask.Shape.SequenceEqual(Shape))
@@ -949,23 +891,20 @@ namespace SL.Lib
 
             Tensor<bool> result = Tensor<bool>.Empty(Shape);
 
-            int[] indices = new int[Shape.Length];
-            int[] neighborIndices = new int[Shape.Length];
-
             for (int i = 0; i < Size(); i++)
             {
-                GetIndices(i, indices);
+                int[] indices = GetApparentPosition(i);
 
                 if (!mask[indices].item) continue;
 
                 bool isPeak = true;
-                for (int di = -1; di <= 1; di++)
+                for (int di = -1; di <= 1 && isPeak; di++)
                 {
-                    for (int dj = -1; dj <= 1; dj++)
+                    for (int dj = -1; dj <= 1 && isPeak; dj++)
                     {
                         if (di == 0 && dj == 0) continue;
 
-                        Array.Copy(indices, neighborIndices, indices.Length);
+                        int[] neighborIndices = (int[])indices.Clone();
                         neighborIndices[dims.rowDim] += di;
                         neighborIndices[dims.colDim] += dj;
 
@@ -978,10 +917,8 @@ namespace SL.Lib
                             (mode == PeakMode.Minimum && comparison >= 0))
                         {
                             isPeak = false;
-                            break;
                         }
                     }
-                    if (!isPeak) break;
                 }
 
                 result[indices] = isPeak;
@@ -989,21 +926,9 @@ namespace SL.Lib
 
             return result;
         }
-        /// <summary>
-        /// Detects peaks in a 2D slice of the tensor.
-        /// </summary>
-        /// <param name="mask">A boolean mask to restrict peak detection.</param>
-        /// <param name="mode">The peak detection mode.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A boolean tensor indicating peak locations.</returns>
+
         public Tensor<bool> GetPeak2D(Tensor<bool> mask, PeakMode mode = PeakMode.Maximum) => GetPeak2D(mask, mode, (0, 1));
 
-        /// <summary>
-        /// Rotates a 2D slice of the tensor by 90 degrees.
-        /// </summary>
-        /// <param name="rotation">The number of 90-degree rotations to perform.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new rotated tensor.</returns>
         public Tensor<T> Rotate90(int rotation, (int rowDim, int colDim) dims)
         {
             rotation = ((rotation % 4) + 4) % 4; // Normalize rotation to be between 0 and 3
@@ -1020,13 +945,10 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
-            int[] indices = new int[Shape.Length];
-            int[] newIndices = new int[Shape.Length];
-
             for (int i = 0; i < Size(); i++)
             {
-                GetIndices(i, indices);
-                Array.Copy(indices, newIndices, indices.Length);
+                int[] indices = GetApparentPosition(i);
+                int[] newIndices = (int[])indices.Clone();
 
                 switch (rotation)
                 {
@@ -1049,32 +971,17 @@ namespace SL.Lib
 
             return result;
         }
-        /// <summary>
-        /// Rotates a 2D slice of the tensor by 90 degrees.
-        /// </summary>
-        /// <param name="rotation">The number of 90-degree rotations to perform.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new rotated tensor.</returns>
-        public Tensor<T> Rotate90(int rotation = 1) => Rotate90(rotation, (0,1));
 
-        /// <summary>
-        /// Rolls the elements of a 2D slice of the tensor.
-        /// </summary>
-        /// <param name="rowOffset">The number of positions to roll along the row dimension.</param>
-        /// <param name="colOffset">The number of positions to roll along the column dimension.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new rolled tensor.</returns>
+        public Tensor<T> Rotate90(int rotation = 1) => Rotate90(rotation, (0, 1));
+
         public Tensor<T> Roll(int rowOffset, int colOffset, (int rowDim, int colDim) dims)
         {
             Tensor<T> result = Empty();
 
-            int[] indices = new int[Shape.Length];
-            int[] newIndices = new int[Shape.Length];
-
             for (int i = 0; i < Size(); i++)
             {
-                GetIndices(i, indices);
-                Array.Copy(indices, newIndices, indices.Length);
+                int[] indices = GetApparentPosition(i);
+                int[] newIndices = (int[])indices.Clone();
 
                 newIndices[dims.rowDim] = (indices[dims.rowDim] + rowOffset + Shape[dims.rowDim]) % Shape[dims.rowDim];
                 newIndices[dims.colDim] = (indices[dims.colDim] + colOffset + Shape[dims.colDim]) % Shape[dims.colDim];
@@ -1084,34 +991,17 @@ namespace SL.Lib
 
             return result;
         }
-        /// <summary>
-        /// Rolls the elements of a 2D slice of the tensor.
-        /// </summary>
-        /// <param name="rowOffset">The number of positions to roll along the row dimension.</param>
-        /// <param name="colOffset">The number of positions to roll along the column dimension.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new rolled tensor.</returns>
-        public Tensor<T> Roll(int rowOffset, int colOffset) => Roll(rowOffset, colOffset, (0,1));
 
-        /// <summary>
-        /// Slides the elements of a 2D slice of the tensor, padding with a specified mode.
-        /// </summary>
-        /// <param name="rowOffset">The number of positions to slide along the row dimension.</param>
-        /// <param name="colOffset">The number of positions to slide along the column dimension.</param>
-        /// <param name="padMode">The padding mode to use for out-of-bounds values.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new slid tensor.</returns>
+        public Tensor<T> Roll(int rowOffset, int colOffset) => Roll(rowOffset, colOffset, (0, 1));
+
         public Tensor<T> Slide(int rowOffset, int colOffset, PadMode<T> padMode, (int rowDim, int colDim) dims)
         {
             Tensor<T> result = Empty();
 
-            int[] indices = new int[Shape.Length];
-            int[] srcIndices = new int[Shape.Length];
-
             for (int i = 0; i < Size(); i++)
             {
-                GetIndices(i, indices);
-                Array.Copy(indices, srcIndices, indices.Length);
+                int[] indices = GetApparentPosition(i);
+                int[] srcIndices = (int[])indices.Clone();
 
                 srcIndices[dims.rowDim] -= rowOffset;
                 srcIndices[dims.colDim] -= colOffset;
@@ -1129,14 +1019,7 @@ namespace SL.Lib
 
             return result;
         }
-        /// <summary>
-        /// Slides the elements of a 2D slice of the tensor, padding with a specified mode.
-        /// </summary>
-        /// <param name="rowOffset">The number of positions to slide along the row dimension.</param>
-        /// <param name="colOffset">The number of positions to slide along the column dimension.</param>
-        /// <param name="padMode">The padding mode to use for out-of-bounds values.</param>
-        /// <param name="dims">The dimensions to treat as rows and columns. Default is (0, 1).</param>
-        /// <returns>A new slid tensor.</returns>
+
         public Tensor<T> Slide(int rowOffset, int colOffset, PadMode<T> padMode) => Slide(rowOffset, colOffset, padMode, (0, 1));
-    } 
+    }
 }

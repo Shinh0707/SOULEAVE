@@ -43,21 +43,18 @@ namespace SL.Lib
             if (array == null)
                 throw new ArgumentNullException(nameof(array));
 
-            int[] shape = GetArrayShape(array);
-            T[] data = new T[array.Length];
-            Array.Copy(array, data, array.Length);
+            int[] shape = Enumerable.Range(0, array.Rank)
+                                    .Select(i => array.GetLength(i))
+                                    .ToArray();
 
-            return new Tensor<T>(data, shape, isReadOnly);
-        }
-
-        private static int[] GetArrayShape(Array array)
-        {
-            int[] shape = new int[array.Rank];
-            for (int i = 0; i < array.Rank; i++)
+            T[] flattenedData = new T[array.Length];
+            int index = 0;
+            foreach (T item in array)
             {
-                shape[i] = array.GetLength(i);
+                flattenedData[index++] = item;
             }
-            return shape;
+
+            return new Tensor<T>(flattenedData, shape, isReadOnly);
         }
 
         /// <summary>

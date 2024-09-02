@@ -2,6 +2,8 @@
 using System.Linq;
 using System;
 using System.Collections;
+using System.Text;
+using UnityEngine;
 
 namespace SL.Lib
 {
@@ -48,6 +50,46 @@ namespace SL.Lib
                     throw new InvalidOperationException("Unknown IndiceType");
             }
         }
+
+        public override string ToString()
+        {
+            switch (Type)
+            {
+                case IndiceType.Single:
+                    return $"Single({Values[0]})";
+                case IndiceType.Range:
+                    return $"Range({Values[0]}..{Values[1]})";
+                case IndiceType.List:
+                    return $"List([{string.Join(", ", Values)}])";
+                default:
+                    return "Unknown";
+            }
+        }
+
+        /// <summary>
+        /// Creates a string representation of an array of Indice objects.
+        /// </summary>
+        /// <param name="indices">The array of Indice objects to represent as a string.</param>
+        /// <returns>A string representation of the Indice array.</returns>
+        public static string ArrayToString(Indice[] indices)
+        {
+            if (indices == null)
+                return "null";
+
+            return $"[{string.Join(", ", indices.Select(i => i.ToString()))}]";
+        }
     }
-    
+    public static class IndiceExtensions
+    {
+        /// <summary>
+        /// Creates a debug-friendly string representation of an array of Indice objects.
+        /// </summary>
+        /// <param name="indices">The array of Indice objects.</param>
+        /// <returns>A debug-friendly string representation of the Indice array.</returns>
+        public static string ToDebugString(this Indice[] indices)
+        {
+            return Indice.ArrayToString(indices);
+        }
+    }
+
 }

@@ -7,54 +7,102 @@ using static SL.Lib.SLRandom;
 namespace SL.Lib
 {
     /// <summary>
-    /// 指定された位置を中心とする3x3の領域をフィールドから効率的に抽出します。
-    ///
-    /// 引数:
-    ///     pos(tuple[int, int]) : 中心位置の(行, 列)座標
-    ///     field(np.ndarray): 2次元のnumpy配列
-    ///     return_generator(bool): ジェネレータを返すかどうか（デフォルトはFalse）
-    ///     pad_value(int) : 境界外を埋める値（デフォルトは1）
-    ///
-    /// 戻り値:
-    ///     np.ndarray: 3x3の抽出された領域
-    ///     境界外の場合はパディングとしてpad_valueが使用されます。
-    ///     return_generatorがTrueの場合は、抽出された領域とジェネレータ関数のタプルを返します。
+    /// Represents a 3x3 region of a tensor centered at a specified position.
+    /// This class helps in efficiently extracting and manipulating a local area of a larger tensor.
     /// </summary>
-    /// <typeparam name="T"></typeparam>
     public class ESEResult
     {
-        private Range _rowRange;
-        private Range _colRange;
-        private (int row,int col) _center;
+        private readonly Range _rowRange;
+        private readonly Range _colRange;
+        private readonly (int row, int col) _center;
+        private readonly int _sourceRows;
+        private readonly int _sourceCols;
 
-        public static ESEResult Get<T>(Indice[] pos,Tensor<T> field) where T : IComparable<T>
+        /// <summary>
+        /// Creates an ESEResult instance for the given position and tensor.
+        /// </summary>
+        /// <typeparam name="T">The type of elements in the tensor.</typeparam>
+        /// <param name="pos">The center position as an array of two Indices.</param>
+        /// <param name="tensor">The source 2D tensor.</param>
+        /// <returns>An ESEResult instance representing the 3x3 area around the specified position.</returns>
+        public static ESEResult Get<T>(Indice[] pos, Tensor<T> tensor) where T : IComparable<T>
         {
-            Indice[] center = pos;
-            int rows = field.Size(0);
-            int cols = field.Size(1);
-            int row = center[0].Values[0];
-            int col = center[1].Values[0];
-            return new ESEResult((row,col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2));
+            if (pos == null || pos.Length != 2)
+                throw new ArgumentException("Position must be an array of two Indice objects.", nameof(pos));
+
+            if (tensor.Shape.Length != 2)
+                throw new ArgumentException("Tensor must be 2D.", nameof(tensor));
+
+            int rows = tensor.Shape[0];
+            int cols = tensor.Shape[1];
+            var real_pos = tensor.GetApparentPosition(pos);
+            int centerRow = real_pos[0];
+            int centerCol = real_pos[1];
+
+            return new ESEResult(
+                (centerRow, centerCol),
+                Math.Max(0, centerRow - 1)..Math.Min(rows, centerRow + 2),
+                Math.Max(0, centerCol - 1)..Math.Min(cols, centerCol + 2),
+                rows,
+                cols
+            );
         }
 
-        public ESEResult((int,int) center,Range rowRange, Range colRange)
+        private ESEResult((int, int) center, Range rowRange, Range colRange, int sourceRows, int sourceCols)
         {
             _center = center;
             _rowRange = rowRange;
             _colRange = colRange;
+            _sourceRows = sourceRows;
+            _sourceCols = sourceCols;
         }
 
-        public Tensor<TTarget> Extract<TTarget>(Tensor<TTarget> target, TTarget padValue) where TTarget : IComparable<TTarget>
+        /// <summary>
+        /// Extracts the 3x3 region from the source tensor, padding with the specified value if necessary.
+        /// </summary>
+        /// <typeparam name="T">The type of elements in the tensor.</typeparam>
+        /// <param name="source">The source tensor to extract from.</param>
+        /// <param name="padValue">The value to use for padding when the 3x3 region extends beyond the source tensor.</param>
+        /// <returns>A 3x3 tensor containing the extracted region.</returns>
+        public Tensor<T> Extract<T>(Tensor<T> source, T padValue) where T : IComparable<T>
         {
-            var extracted = target[_rowRange, _colRange];
+            if (source.Shape.Length != 2 || source.Shape[0] != _sourceRows || source.Shape[1] != _sourceCols)
+                throw new ArgumentException("Source tensor must match the dimensions of the original tensor.", nameof(source));
 
-            var result = Tensor<TTarget>.Full(padValue, 3, 3);
+            var extracted = source[_rowRange, _colRange];
+            var result = Tensor<T>.Full(padValue, 3, 3);
 
-            // 抽出した領域を結果配列の適切な位置に配置
-            var resultStartRow = 1 - (_center.row - _rowRange.Start.Value);
-            var resultStartCol = 1 - (_center.col - _colRange.Start.Value);
-            result[resultStartRow..(resultStartRow + extracted.Size(0)), resultStartCol..(resultStartCol + extracted.Size(1))] = extracted;
+            int resultStartRow = 1 - (_center.row - _rowRange.Start.Value);
+            int resultStartCol = 1 - (_center.col - _colRange.Start.Value);
+            int extractedRows = extracted.Shape[0];
+            int extractedCols = extracted.Shape[1];
+
+            result[resultStartRow..(resultStartRow + extractedRows), resultStartCol..(resultStartCol + extractedCols)] = extracted;
+
             return result;
+        }
+
+        /// <summary>
+        /// Gets the center position of the 3x3 region in the original tensor.
+        /// </summary>
+        public (int row, int col) Center => _center;
+
+        /// <summary>
+        /// Gets the range of rows covered by this 3x3 region in the original tensor.
+        /// </summary>
+        public Range RowRange => _rowRange;
+
+        /// <summary>
+        /// Gets the range of columns covered by this 3x3 region in the original tensor.
+        /// </summary>
+        public Range ColRange => _colRange;
+
+        /// <summary>
+        /// Returns a string representation of the ESEResult.
+        /// </summary>
+        public override string ToString()
+        {
+            return $"ESEResult: Center({_center.row}, {_center.col}), RowRange({_rowRange}), ColRange({_colRange})";
         }
     }
 
@@ -238,6 +286,7 @@ namespace SL.Lib
             {
                 var selectList = selectMask.ArgWhere();
                 indice = SelectRandom(selectList);
+                Debug.Log($"SelectRandom: {field..ToDebugString()}");
                 return true;
             }
             indice = field.GetIndices(0);
@@ -268,6 +317,8 @@ namespace SL.Lib
                 newTensorLabel = new TensorLabel(predField == 0);
                 return true;
             }
+            Debug.Log(field);
+            Debug.Log(ESE);
             if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1))) 
             {
                 var predTensorLabel = new TensorLabel(predField == 0);
@@ -493,8 +544,10 @@ namespace SL.Lib
         {
             if (extractedField[1, 1].item == 1) return false;
             var fieldMask = (extractedField == 1) & SurroundMask;
-            if (fieldMask.All()) return false;
-            return (fieldMask & (RotMasks[RotLabel[fieldMask]].Sum(new[] { 0 }) > 0)).Any();
+            if (!fieldMask.Any()) return false;
+            Debug.Log(fieldMask);
+            var rotLabel = RotLabel[fieldMask];
+            return (fieldMask & (RotMasks[rotLabel].Sum(new[] { 0 }) > 0)).Any();
         }
 
         public static Tensor<float> NeighborScore(Tensor<float> field)
@@ -608,7 +661,7 @@ namespace SL.Lib
                 throw new ArgumentException("Total weight must be positive.");
             }
 
-            float randomValue = (float)_random.NextDouble() * totalWeight;
+            float randomValue = (float)Random.NextDouble() * totalWeight;
 
             for (int i = 0; i < pool.Length; i++)
             {
