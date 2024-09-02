@@ -186,7 +186,7 @@ namespace SL.Lib
             RANDOM
         }
 
-        public (Tensor<bool>, int) GetAreaMask(AreaMaskSelectMode areaMaskSelectMode)
+        public Tensor<bool> GetAreaMask(AreaMaskSelectMode areaMaskSelectMode)
         {
             int selectedLabel = 0;
             if (areaMaskSelectMode == AreaMaskSelectMode.RANDOM)
@@ -195,7 +195,7 @@ namespace SL.Lib
             }
             else
             {
-                var areaSizes = _labelKinds.Select(label => (_label == label).Cast<float>().Sum());
+                var areaSizes = _labelKinds.Select(label => GetAreaSize(label));
                 if(areaMaskSelectMode == AreaMaskSelectMode.MAX)
                 {
                     var maxAreaSize = areaSizes.Max();
@@ -207,7 +207,7 @@ namespace SL.Lib
                     selectedLabel = _labelKinds[SelectRandomIndex(areaSizes, minAreaSize)];
                 }
             }
-            return (_label == selectedLabel, selectedLabel);
+            return _label == selectedLabel;
         }
 
         public void UpdateLabel(Indice[] indices, int setLabel)
@@ -244,7 +244,7 @@ namespace SL.Lib
             return false;
         }
 
-        public static bool SetWall(Indice[] pos, Tensor<float> field, int minSize, TensorLabel tensorLabel, out Tensor<float> newField, out TensorLabel newTensorLabel)
+        public static bool SetWall(Indice[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabel)
         {
             if (field[pos].item == 1f)
             {
@@ -259,18 +259,18 @@ namespace SL.Lib
                 return false;
             }
             var ESE = ESEResult.Get(pos, field);
-            var predField = new Tensor<float>(field);
-            predField[pos] = 1f;
-            var wallLabels = (field == 1f).ArgWhere();
+            var predField = new Tensor<int>(field);
+            predField[pos] = 1;
+            var wallLabels = (field == 1).ArgWhere();
             if (wallLabels.Count == 0)
             {
                 newField = predField;
-                newTensorLabel = new TensorLabel(predField == 0f);
+                newTensorLabel = new TensorLabel(predField == 0);
                 return true;
             }
-            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1f))) 
+            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1))) 
             {
-                var predTensorLabel = new TensorLabel(predField == 0f);
+                var predTensorLabel = new TensorLabel(predField == 0);
                 foreach(var routelabel in predTensorLabel.RouteLabels)
                 {
                     if (predTensorLabel.GetAreaSize(routelabel) < minSize)
@@ -287,7 +287,7 @@ namespace SL.Lib
             return true;
         }
 
-        public static bool DeleteWall(Indice[] pos, Tensor<float> field, int minSize, TensorLabel tensorLabel, out Tensor<float> newField, out TensorLabel newTensorLabe)
+        public static bool DeleteWall(Indice[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabe)
         {
             if (field[pos].item == 0f)
             {
@@ -296,8 +296,8 @@ namespace SL.Lib
                 return true;
             }
             var ESE = ESEResult.Get(pos, field);
-            var extractedField = ESE.Extract(field, 1f);
-            var mask = MazeArrayHelper.NeighborBoolMask & (extractedField == 0f);
+            var extractedField = ESE.Extract(field, 1);
+            var mask = MazeArrayHelper.NeighborBoolMask & (extractedField == 0);
             if (!mask.Any())
             {
                 newField = field;
@@ -316,8 +316,41 @@ namespace SL.Lib
             tensorLabel.UpdateLabel(pos, replaceLabel);
             newTensorLabe = tensorLabel;
             newField = new(field);
-            newField[pos] = 0f;
+            newField[pos] = 0;
             return true;
+        }
+
+        public enum MazeBaseTile
+        {
+            ROUTE = 0,
+            WALL = 1
+        }
+
+        public static (Tensor<int>, TensorLabel) AutoSet(Tensor<int> field, MazeBaseTile tile, int minSize, TensorLabel tensorLabel)
+        {
+            Tensor<bool> fieldMask;
+            if (tile == MazeBaseTile.ROUTE)
+            {
+                fieldMask = field == (int)MazeBaseTile.WALL;
+            }
+            else
+            {
+                fieldMask = tensorLabel.GetAreaMask(TensorLabel.AreaMaskSelectMode.MAX);
+            }
+            if (FindRandomPosition(field, 1 - (int)tile, fieldMask, out Indice[] pos))
+            {
+                if (tile == MazeBaseTile.ROUTE)
+                {
+                    DeleteWall(pos, field, minSize, tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabel);
+                    return (newField, newTensorLabel);
+                }
+                else
+                {
+                    SetWall(pos, field, minSize, tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabel);
+                    return (newField, newTensorLabel);
+                }
+            }
+            return (field, tensorLabel);
         }
         
     }
@@ -441,10 +474,10 @@ namespace SL.Lib
             }
         }
 
-        public static bool IsPotentialSplitter(Tensor<float> extractedField)
+        public static bool IsPotentialSplitter(Tensor<int> extractedField)
         {
-            if (extractedField[1, 1].item == 1f) return false;
-            var fieldMask = (extractedField == 1f) & SurroundMask;
+            if (extractedField[1, 1].item == 1) return false;
+            var fieldMask = (extractedField == 1) & SurroundMask;
             if (fieldMask.All()) return false;
             return (fieldMask & (RotMasks[RotLabel[fieldMask]].Sum(new[] { 0 }) > 0)).Any();
         }
