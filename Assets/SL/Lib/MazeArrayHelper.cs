@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 using static SL.Lib.SLSequential;
 
@@ -22,36 +21,34 @@ namespace SL.Lib
     ///     return_generatorがTrueの場合は、抽出された領域とジェネレータ関数のタプルを返します。
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public class ESEResult<T> where T : IComparable<T>
+    public class ESEResult
     {
         private Range _rowRange;
         private Range _colRange;
         private (int row,int col) _center;
-        private T _padValue;
 
-        public static ESEResult<T> Get(Indice[] pos,Tensor<T> field, T padValue)
+        public static ESEResult Get<T>(Indice[] pos,Tensor<T> field) where T : IComparable<T>
         {
             Indice[] center = pos;
             int rows = field.Size(0);
             int cols = field.Size(1);
             int row = center[0].Values[0];
             int col = center[1].Values[0];
-            return new ESEResult<T>((row,col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2), padValue);
+            return new ESEResult((row,col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2));
         }
 
-        public ESEResult((int,int) center,Range rowRange, Range colRange, T padValue)
+        public ESEResult((int,int) center,Range rowRange, Range colRange)
         {
             _center = center;
             _rowRange = rowRange;
             _colRange = colRange;
-            _padValue = padValue;
         }
 
-        public Tensor<T> Extract(Tensor<T> target)
+        public Tensor<TTarget> Extract<TTarget>(Tensor<TTarget> target, TTarget padValue) where TTarget : IComparable<TTarget>
         {
             var extracted = target[_rowRange, _colRange];
 
-            var result = Tensor<T>.Full(_padValue, 3, 3);
+            var result = Tensor<TTarget>.Full(padValue, 3, 3);
 
             // 抽出した領域を結果配列の適切な位置に配置
             var resultStartRow = 1 - (_center.row - _rowRange.Start.Value);
@@ -64,7 +61,13 @@ namespace SL.Lib
     public class TensorLabel
     {
         private Tensor<int> _label;
-        private int[] _labelKinds;
+
+        public Tensor<int> Label
+        {
+            get { return new(_label,true); }
+        }
+
+        private List<int> _labelKinds;
 
         public TensorLabel(Tensor<bool> tensor, bool backgroundValue = false)
         {
@@ -123,9 +126,9 @@ namespace SL.Lib
             }
 
             // Collect unique labels (excluding background)
-            _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToArray();
+            _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToList();
         }
-        public int[] RouteLabels { get { return _labelKinds; } }
+        public List<int> RouteLabels { get { return _labelKinds; } }
         public int GetAreaSize(int label) => (_label==label).Cast<int>().Sum();
         public int GetAreaSize(Indice[] labelPosition) => GetAreaSize(_label[labelPosition].item);
 
@@ -215,6 +218,15 @@ namespace SL.Lib
             }
             _label[indices] = setLabel;
         }
+        public void UpdateLabel(int delLabel, int setLabel)
+        {
+            if (setLabel != 0 && !_labelKinds.Contains(setLabel))
+            {
+                _labelKinds.Append(setLabel);
+            }
+            _labelKinds.Remove(delLabel);
+            _label[_label == delLabel] = setLabel;
+        }
     }
 
     public class MazeCreater
@@ -246,7 +258,7 @@ namespace SL.Lib
                 newTensorLabel = tensorLabel;
                 return false;
             }
-            var ESE = ESEResult<float>.Get(pos, field, 1f);
+            var ESE = ESEResult.Get(pos, field);
             var predField = new Tensor<float>(field);
             predField[pos] = 1f;
             var wallLabels = (field == 1f).ArgWhere();
@@ -256,7 +268,7 @@ namespace SL.Lib
                 newTensorLabel = new TensorLabel(predField == 0f);
                 return true;
             }
-            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field))) 
+            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1f))) 
             {
                 var predTensorLabel = new TensorLabel(predField == 0f);
                 foreach(var routelabel in predTensorLabel.RouteLabels)
@@ -275,6 +287,38 @@ namespace SL.Lib
             return true;
         }
 
+        public static bool DeleteWall(Indice[] pos, Tensor<float> field, int minSize, TensorLabel tensorLabel, out Tensor<float> newField, out TensorLabel newTensorLabe)
+        {
+            if (field[pos].item == 0f)
+            {
+                newField = field;
+                newTensorLabe = tensorLabel;
+                return true;
+            }
+            var ESE = ESEResult.Get(pos, field);
+            var extractedField = ESE.Extract(field, 1f);
+            var mask = MazeArrayHelper.NeighborBoolMask & (extractedField == 0f);
+            if (!mask.Any())
+            {
+                newField = field;
+                newTensorLabe = tensorLabel;
+                return false;
+            }
+            var uniqLabels = ESE.Extract(tensorLabel.Label, 0)[mask].Unique.Where(l => l != 0);
+            var replaceLabel = uniqLabels.Min();
+            foreach(var label in uniqLabels)
+            {
+                if (label != replaceLabel)
+                {
+                    tensorLabel.UpdateLabel(label,replaceLabel);
+                }
+            }
+            tensorLabel.UpdateLabel(pos, replaceLabel);
+            newTensorLabe = tensorLabel;
+            newField = new(field);
+            newField[pos] = 0f;
+            return true;
+        }
         
     }
 
@@ -286,6 +330,7 @@ namespace SL.Lib
         private static Tensor<bool> _surroundMask;
         private static List<Indice[]> _surrondMaskIndices;
         private static Tensor<float> _neighborMask;
+        private static Tensor<bool> _neighborBoolMask;
         private static Tensor<float> _deltaMask;
         
 
@@ -368,6 +413,18 @@ namespace SL.Lib
                     { 1f, 0f, 1f },
                     { 0f, 1f, 0f }
                 }, true);
+            }
+        }
+        public static Tensor<bool> NeighborBoolMask
+        {
+            get
+            {
+                return _neighborBoolMask ??= Tensor<bool>.FromArray(new[,]
+                {
+                    { false, true, false },
+                    { true, false, true },
+                    { false, true, false }
+                },true);
             }
         }
 
