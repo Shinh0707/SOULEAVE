@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using static SL.Lib.TensorPadding;
 using static SL.Lib.SLSequential;
 
 namespace SL.Lib
@@ -73,7 +72,7 @@ namespace SL.Lib
 
             int rows = tensor.Shape[0];
             int cols = tensor.Shape[1];
-            _label = new Tensor<int>(new int[rows * cols], rows, cols);
+            _label = Tensor<int>.Empty(rows,cols);
 
             int currentLabel = 1;
             var equivalenceTable = new Dictionary<int, int>();
@@ -83,10 +82,10 @@ namespace SL.Lib
             {
                 for (int j = 0; j < cols; j++)
                 {
-                    if (tensor[i, j] != backgroundValue)
+                    if (tensor[i, j].item != backgroundValue)
                     {
                         var neighbors = GetNeighbors(i, j, rows, cols)
-                            .Select(p => _label[p.Item1, p.Item2])
+                            .Select(p => _label[p.Item1, p.Item2].item)
                             .Where(l => l != 0)
                             .ToList();
 
@@ -113,18 +112,18 @@ namespace SL.Lib
             {
                 for (int j = 0; j < cols; j++)
                 {
-                    if (_label[i, j] != 0)
+                    if (_label[i, j].item != 0)
                     {
-                        _label[i, j] = Find(equivalenceTable, _label[i, j]);
+                        _label[i, j] = Find(equivalenceTable, _label[i, j].item);
                     }
                 }
             }
 
             // Collect unique labels (excluding background)
-            _labelKinds = _label.Data.Distinct().Where(l => l != 0).OrderBy(l => l).ToArray();
+            _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToArray();
         }
 
-        public void ApplyEachLabel<T>(Action<List<int>> func) where T : IComparable<T>
+        public void ApplyEachLabel<T>(Action<List<Indice[]>> func) where T : IComparable<T>
         {
             foreach (var kind in _labelKinds)
             {
@@ -187,7 +186,7 @@ namespace SL.Lib
             }
             else
             {
-                var areaSizes = _labelKinds.Select(label => (_label == label).BoolSum());
+                var areaSizes = _labelKinds.Select(label => (_label == label).Cast<float>().Sum());
                 if(areaMaskSelectMode == AreaMaskSelectMode.MAX)
                 {
                     var maxAreaSize = areaSizes.Max();
@@ -205,16 +204,16 @@ namespace SL.Lib
 
     public class MazeCreater
     {
-        public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out int directIndex) where T : IComparable<T>
+        public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out Indice[] indice) where T : IComparable<T>
         {
             var selectMask = mask & (field == searchValue);
             if (selectMask.Any())
             {
                 var selectList = selectMask.ArgWhere();
-                directIndex = SelectRandom(selectList);
+                indice = SelectRandom(selectList);
                 return true;
             }
-            directIndex = 0;
+            indice = field.GetIndices(0);
             return false;
         }
 
@@ -223,34 +222,35 @@ namespace SL.Lib
 
     public class MazeArrayHelper
     {
-        private static List<Tensor<float>> _rotMasks;
+        private static Tensor<float> _rotMasks;
+        private static bool _rotMasksCreated;
         private static Tensor<int> _rotLabel;
         private static Tensor<bool> _surroundMask;
-        private static List<int> _surrondMaskIndices;
+        private static List<Indice[]> _surrondMaskIndices;
         private static Tensor<float> _neighborMask;
         private static Tensor<float> _deltaMask;
         
 
-        public static List<Tensor<float>> RotMasks
+        public static Tensor<float> RotMasks
         {
             get
             {
-                if (_rotMasks == null)
+                if (!_rotMasksCreated)
                 {
-                    var s1 = new Tensor<float>(new[,]{
+                    var s1 = Tensor<float>.FromArray(new[,]{
                         { 1f, 0f, 1f },
                         { 0f, 0f, 1f },
                         { 1f, 1f, 1f }
-                    });
+                    },true);
 
-                    var s2 = new Tensor<float>(new[,]
+                    var s2 = Tensor<float>.FromArray(new[,]
                     {
                         { 0f, 1f, 0f },
                         { 0f, 0f, 0f },
                         { 1f ,1f, 1f }
-                    });
+                    }, true);
 
-                    _rotMasks = new List<Tensor<float>> { s1, s2 };
+                    List<Tensor<float>> _rotMasks = new List<Tensor<float>> { s1, s2 };
 
                     for (int i = 0; i < 3; i++)
                     {
@@ -259,10 +259,8 @@ namespace SL.Lib
                         _rotMasks.Add(s1);
                         _rotMasks.Add(s2);
                     }
-                }
-                foreach (var s in _rotMasks)
-                {
-                    s.MakeReadOnly();
+                    MazeArrayHelper._rotMasks = Tensor<float>.Stack(_rotMasks, 0);
+                    _rotMasksCreated = true;
                 }
                 return _rotMasks;
             }
@@ -277,7 +275,7 @@ namespace SL.Lib
                     { 0, 1, 2 },
                     { 7, 8, 3 },
                     { 6, 5, 4 }
-                }).AsReadOnly();
+                },true);
             }
         }
 
@@ -290,11 +288,11 @@ namespace SL.Lib
                     { true, true,true },
                     { true, false, true },
                     { true, true, true }
-                }).AsReadOnly();
+                }, true);
             }
         }
 
-        public static List<int> SurroundMaskIndice
+        public static List<Indice[]> SurroundMaskIndice
         {
             get
             {
@@ -311,7 +309,7 @@ namespace SL.Lib
                     { 0f, 1f, 0f },
                     { 1f, 0f, 1f },
                     { 0f, 1f, 0f }
-                }).AsReadOnly();
+                }, true);
             }
         }
 
@@ -324,16 +322,16 @@ namespace SL.Lib
                     { 0f, 1f, 0f },
                     { 1f, -4f, 1f },
                     { 0f, 1f, 0f }
-                }).AsReadOnly();
+                }, true);
             }
         }
 
         public static bool IsPotentialSplitter(Tensor<float> extractedField)
         {
-            if (extractedField[1, 1] == 1f) return false;
+            if (extractedField[1, 1].item == 1f) return false;
             var fieldMask = (extractedField == 1f) & SurroundMask;
             if (fieldMask.All()) return false;
-
+            return (fieldMask & (RotMasks[RotLabel[fieldMask]].Sum(new[] { 0 }) > 0)).Any();
         }
 
         public static Tensor<float> NeighborScore(Tensor<float> field)
@@ -363,7 +361,7 @@ namespace SL.Lib
             float ddy = ddx = Mathf.Pow(1.0f / dx, 2);
             alpha = Mathf.Min(alpha, (0.5f / (ddx + ddy)) / dt);
             var normalizedDeltaScore = new Tensor<float>(deltaScore);
-            tensorLabel.ApplyEachLabel<float>((List<int> indices) =>
+            tensorLabel.ApplyEachLabel<float>((List<Indice[]> indices) =>
             {
                 normalizedDeltaScore[indices] = normalizedDeltaScore[indices].RN2C();
             });
@@ -390,8 +388,8 @@ namespace SL.Lib
         public static (Tensor<bool>, Tensor<bool>, Tensor<float>) DifficultyPeaks(Tensor<float> field, Tensor<float> difficultyScore, TensorLabel tensorLabel)
         {
             var mask = field == 0;
-            var maxPeaks = difficultyScore.GetPeak2D(mask, TensorPeakDetection.PeakMode.Maximum);
-            var minPeaks = difficultyScore.GetPeak2D(mask, TensorPeakDetection.PeakMode.Minimum);
+            var maxPeaks = difficultyScore.GetPeak2D(mask, PeakMode.Maximum);
+            var minPeaks = difficultyScore.GetPeak2D(mask, PeakMode.Minimum);
             var normalizedPeak = Tensor<float>.Zeros(field);
 
             void Norm(Tensor<bool> selector)
@@ -404,7 +402,7 @@ namespace SL.Lib
                 }
                 else
                 {
-                    MaxSelector = selector & (difficultyScore == difficultyScore[selector].Max);
+                    MaxSelector = selector & (difficultyScore == difficultyScore[selector].Max());
                     normalizedPeak[MaxSelector] = 2;
                 }
                 if (MinSelector.Any())
@@ -413,7 +411,7 @@ namespace SL.Lib
                 }
                 else
                 {
-                    MinSelector = selector & (difficultyScore == difficultyScore[selector].Min);
+                    MinSelector = selector & (difficultyScore == difficultyScore[selector].Min());
                     normalizedPeak[MinSelector] = -2;
                 }
             }
