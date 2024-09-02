@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEngine;
 using static SL.Lib.SLSequential;
 
@@ -25,15 +26,17 @@ namespace SL.Lib
     {
         private Range _rowRange;
         private Range _colRange;
-        private (int row, int col) _center;
+        private (int row,int col) _center;
         private T _padValue;
 
-        public static ESEResult<T> Get((int,int) pos,Tensor<T> field, T padValue)
+        public static ESEResult<T> Get(Indice[] pos,Tensor<T> field, T padValue)
         {
-            (int row, int col) = pos;
+            Indice[] center = pos;
             int rows = field.Size(0);
             int cols = field.Size(1);
-            return new ESEResult<T>((row, col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2), padValue);
+            int row = center[0].Values[0];
+            int col = center[1].Values[0];
+            return new ESEResult<T>((row,col), Mathf.Max(0, row - 1)..Mathf.Min(rows, row + 2), Mathf.Max(0, col - 1)..Mathf.Min(cols, col + 2), padValue);
         }
 
         public ESEResult((int,int) center,Range rowRange, Range colRange, T padValue)
@@ -122,6 +125,9 @@ namespace SL.Lib
             // Collect unique labels (excluding background)
             _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToArray();
         }
+        public int[] RouteLabels { get { return _labelKinds; } }
+        public int GetAreaSize(int label) => (_label==label).Cast<int>().Sum();
+        public int GetAreaSize(Indice[] labelPosition) => GetAreaSize(_label[labelPosition].item);
 
         public void ApplyEachLabel<T>(Action<List<Indice[]>> func) where T : IComparable<T>
         {
@@ -200,6 +206,15 @@ namespace SL.Lib
             }
             return (_label == selectedLabel, selectedLabel);
         }
+
+        public void UpdateLabel(Indice[] indices, int setLabel)
+        {
+            if (setLabel != 0 && !_labelKinds.Contains(setLabel))
+            {
+                _labelKinds.Append(setLabel);
+            }
+            _label[indices] = setLabel;
+        }
     }
 
     public class MazeCreater
@@ -215,6 +230,49 @@ namespace SL.Lib
             }
             indice = field.GetIndices(0);
             return false;
+        }
+
+        public static bool SetWall(Indice[] pos, Tensor<float> field, int minSize, TensorLabel tensorLabel, out Tensor<float> newField, out TensorLabel newTensorLabel)
+        {
+            if (field[pos].item == 1f)
+            {
+                newField = field;
+                newTensorLabel = tensorLabel;
+                return true;
+            }
+            if (tensorLabel.GetAreaSize(pos) - 1 < minSize)
+            {
+                newField = field;
+                newTensorLabel = tensorLabel;
+                return false;
+            }
+            var ESE = ESEResult<float>.Get(pos, field, 1f);
+            var predField = new Tensor<float>(field);
+            predField[pos] = 1f;
+            var wallLabels = (field == 1f).ArgWhere();
+            if (wallLabels.Count == 0)
+            {
+                newField = predField;
+                newTensorLabel = new TensorLabel(predField == 0f);
+                return true;
+            }
+            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field))) 
+            {
+                var predTensorLabel = new TensorLabel(predField == 0f);
+                foreach(var routelabel in predTensorLabel.RouteLabels)
+                {
+                    if (predTensorLabel.GetAreaSize(routelabel) < minSize)
+                    {
+                        newField = field;
+                        newTensorLabel = tensorLabel;
+                        return false;
+                    }
+                }
+            }
+            tensorLabel.UpdateLabel(pos, 0);
+            newField = predField;
+            newTensorLabel = tensorLabel;
+            return true;
         }
 
         
