@@ -561,16 +561,16 @@ namespace SL.Lib
             return (fieldMask & (rotMasks.Sum(new[] { 0 }) > 0)).Any();
         }
 
-        public static Tensor<float> NeighborScore(Tensor<float> field)
+        public static Tensor<float> NeighborScore(Tensor<int> field)
         {
-            var padded = (1f - field).Pad(1, new ConstantPadMode<float>(0f));
+            var padded = (1 - field).Pad(1, new ConstantPadMode<int>(0)).Cast<float>();
             var mask = padded == 0f;
             var R = Tensor<float>.Zeros(field);
             R[mask] = padded.Convolve(NeighborMask)[mask];
             return R;
         }
 
-        public static Tensor<float> DeltaScore(Tensor<float> field, Tensor<float> neighborScore)
+        public static Tensor<float> DeltaScore(Tensor<int> field, Tensor<float> neighborScore)
         {
             var mask = field == 0;
             var R = Tensor<float>.Zeros(field);
@@ -579,7 +579,7 @@ namespace SL.Lib
             return R;
         }
 
-        public static Tensor<float> Difficulty(Tensor<float> field, Tensor<float> neighborScore, Tensor<float> deltaScore, TensorLabel tensorLabel, int steps = 100, float alpha = 0.5f)
+        public static Tensor<float> Difficulty(Tensor<int> field, Tensor<float> neighborScore, Tensor<float> deltaScore, TensorLabel tensorLabel, int steps = 100, float alpha = 0.5f)
         {
             float dx;
             float dy = dx = 1.0f;
@@ -612,7 +612,7 @@ namespace SL.Lib
             return R;
         }
 
-        public static (Tensor<bool>, Tensor<bool>, Tensor<float>) DifficultyPeaks(Tensor<float> field, Tensor<float> difficultyScore, TensorLabel tensorLabel)
+        public static Tensor<float> DifficultyPeaks(Tensor<int> field, Tensor<float> difficultyScore, TensorLabel tensorLabel)
         {
             var mask = field == 0;
             var maxPeaks = difficultyScore.GetPeak2D(mask, PeakMode.Maximum);
@@ -644,7 +644,7 @@ namespace SL.Lib
             }
 
             tensorLabel.ApplyEachLabel<float>(Norm);
-            return (maxPeaks, minPeaks, normalizedPeak);
+            return normalizedPeak;
         }
 
         public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, int maxSteps = 1000, float _alpha=0.5f)
@@ -678,7 +678,7 @@ namespace SL.Lib
             return filledSteps.MaxNormalize();
         }
 
-        public static Tensor<float> FluidDifficulty(Tensor<float> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, int maxSteps = 1000, float sourceAmount=3.0f)
+        public static Tensor<float> FluidDifficulty(Tensor<int> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, int maxSteps = 1000, float sourceAmount=3.0f)
         {
             var stable = (deltaScore.MinMaxNormalize() + 1f) * 0.5f;
             var maxPeak = normalizedPeak > 0;
@@ -695,7 +695,7 @@ namespace SL.Lib
             return Fluid(sources, stable, field == 0, -sourceAmount, sourceAmount, maxSteps);
         }
 
-        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<float> field, Tensor<float> normalizedFilledSteps, Tensor<float> normalizedPreak, TensorLabel tensorLabel)
+        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<float> normalizedFilledSteps, Tensor<float> normalizedPreak, TensorLabel tensorLabel)
         {
             Dictionary<int, (List<Indice[]>, List<Indice[]>)> points = new();
             void setStartAndGoal(Tensor<bool> selector, int label)
@@ -708,6 +708,16 @@ namespace SL.Lib
             }
             tensorLabel.ApplyEachLabel<float>(setStartAndGoal);
             return points;
+        }
+
+        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<int> field, TensorLabel tensorLabel)
+        {
+            var neighborScore = NeighborScore(field);
+            var deltaScore = DeltaScore(field,neighborScore);
+            var difficultyScore = Difficulty(field, neighborScore, deltaScore, tensorLabel, 5000);
+            var difficultyPeaks = DifficultyPeaks(field, difficultyScore, tensorLabel);
+            var fluidResult = FluidDifficulty(field, difficultyPeaks, deltaScore, tensorLabel, 5000);
+            return GetStartAndGoal(fluidResult, difficultyPeaks, tensorLabel);
         }
     }
 
