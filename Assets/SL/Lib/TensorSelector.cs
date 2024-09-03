@@ -70,6 +70,8 @@ namespace SL.Lib
             }
             return maxIndices;
         }
+        public Tensor<bool> MaxMask(Tensor<bool> anotherMask) => (this == this[anotherMask].Max()) & anotherMask;
+        public Tensor<bool> MaxMask() => this == Max();
 
         /// <summary>
         /// Finds a single index of the maximum value in the tensor.
@@ -106,6 +108,9 @@ namespace SL.Lib
             }
             return minIndices;
         }
+
+        public Tensor<bool> MinMask(Tensor<bool> anotherMask) => (this == this[anotherMask].Min()) & anotherMask;
+        public Tensor<bool> MinMask() => this == Min();
 
         /// <summary>
         /// Finds a single index of the minimum value in the tensor.

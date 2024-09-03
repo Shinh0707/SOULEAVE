@@ -195,6 +195,13 @@ namespace SL.Lib
                 func(_label == kind);
             }
         }
+        public void ApplyEachLabel<T>(Action<Tensor<bool>, int> func) where T : IComparable<T>
+        {
+            foreach (var kind in _labelKinds)
+            {
+                func(_label == kind, kind);
+            }
+        }
 
         private IEnumerable<Tuple<int, int>> GetNeighbors(int i, int j, int rows, int cols)
         {
@@ -686,6 +693,21 @@ namespace SL.Lib
             tensorLabel.ApplyEachLabel<float>(dNorm);
 
             return Fluid(sources, stable, field == 0, -sourceAmount, sourceAmount, maxSteps);
+        }
+
+        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<float> field, Tensor<float> normalizedFilledSteps, Tensor<float> normalizedPreak, TensorLabel tensorLabel)
+        {
+            Dictionary<int, (List<Indice[]>, List<Indice[]>)> points = new();
+            void setStartAndGoal(Tensor<bool> selector, int label)
+            {
+                var maxPoints = normalizedFilledSteps.MinMask(selector);
+                maxPoints = normalizedPreak.MaxMask(maxPoints);
+                var minPoints = normalizedFilledSteps.MaxMask(selector);
+                minPoints = normalizedPreak.MinMask(minPoints);
+                points[label] = (minPoints.ArgWhere(), maxPoints.ArgWhere());
+            }
+            tensorLabel.ApplyEachLabel<float>(setStartAndGoal);
+            return points;
         }
     }
 
