@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.VisualScripting.Antlr3.Runtime.Misc;
@@ -564,9 +565,11 @@ namespace SL.Lib
         public static Tensor<float> NeighborScore(Tensor<int> field)
         {
             var padded = (1 - field).Pad(1, new ConstantPadMode<int>(0)).Cast<float>();
-            var mask = padded == 0f;
+            var mask = field == 0;
             var R = Tensor<float>.Zeros(field);
-            R[mask] = padded.Convolve(NeighborMask)[mask];
+            var conv = padded.Convolve(NeighborMask);
+            Debug.Log($"Convolved: {conv}");
+            R[mask] =conv[mask];
             return R;
         }
 
@@ -719,46 +722,151 @@ namespace SL.Lib
             var fluidResult = FluidDifficulty(field, difficultyPeaks, deltaScore, tensorLabel, 5000);
             return GetStartAndGoal(fluidResult, difficultyPeaks, tensorLabel);
         }
-    }
-
-    internal class SLRandom
-    {
-        private static System.Random _random;
-        public static System.Random Random => _random ??= new System.Random();
-        public static T SelectRandom<T>(List<T> pool) => pool[Random.Next(pool.Count)];
-        public static T SelectRandom<T>(T[] pool) => pool[Random.Next(pool.Length)];
-        public static int SelectRandomIndex<T>(IEnumerable<T> pool, T value) where T : IComparable<T>
+        public static IEnumerator GetStartAndGoalAsync(Tensor<int> field, TensorLabel tensorLabel, Action<Dictionary<int, (List<Indice[]>, List<Indice[]>)>> callback)
         {
-            var selectList = pool.Select((v,i) => (v,i)).Where((v) => v.v.Equals(value));
-            return SelectRandom(selectList.Select((v) => v.i).ToList());
+            Debug.Log("GetStartAndGoalAsync: Starting calculation");
+
+            yield return new WaitForEndOfFrame();
+
+            Debug.Log("GetStartAndGoalAsync: Calculating NeighborScore");
+            var neighborScore = NeighborScore(field);
+            Debug.Log("GetStartAndGoalAsync: NeighborScore calculation complete");
+
+            yield return new WaitForEndOfFrame();
+
+            Debug.Log("GetStartAndGoalAsync: Calculating DeltaScore");
+            var deltaScore = DeltaScore(field, neighborScore);
+            Debug.Log("GetStartAndGoalAsync: DeltaScore calculation complete");
+
+            yield return new WaitForEndOfFrame();
+
+            Debug.Log("GetStartAndGoalAsync: Starting DifficultyAsync calculation");
+            var difficultyScore = Tensor<float>.Empty(field.Shape);
+            yield return DifficultyAsync(field, neighborScore, deltaScore, tensorLabel, difficultyScore);
+            Debug.Log("GetStartAndGoalAsync: DifficultyAsync calculation complete");
+
+            Debug.Log("GetStartAndGoalAsync: Calculating DifficultyPeaks");
+            var difficultyPeaks = DifficultyPeaks(field, difficultyScore, tensorLabel);
+            Debug.Log("GetStartAndGoalAsync: DifficultyPeaks calculation complete");
+
+            yield return new WaitForEndOfFrame();
+
+            Debug.Log("GetStartAndGoalAsync: Starting FluidDifficultyAsync calculation");
+            var fluidResult = Tensor<float>.Empty(field.Shape);
+            yield return FluidDifficultyAsync(field, difficultyPeaks, deltaScore, tensorLabel, fluidResult);
+            Debug.Log("GetStartAndGoalAsync: FluidDifficultyAsync calculation complete");
+
+            Debug.Log("GetStartAndGoalAsync: Calculating final StartAndGoal");
+            var result = GetStartAndGoal(fluidResult, difficultyPeaks, tensorLabel);
+            Debug.Log("GetStartAndGoalAsync: StartAndGoal calculation complete");
+
+            callback(result);
+            Debug.Log("GetStartAndGoalAsync: Calculation finished and callback invoked");
         }
-        public static T Choice<T>(T[] pool, float[] weights)
+        public static IEnumerator CalculateStartAndGoalPointsAsync(Tensor<int> baseMap, TensorLabel tensorLabel, Dictionary<int, (List<Indice[]>, List<Indice[]>)> startAndGoalPoints)
         {
-            if (pool == null || weights == null || pool.Length != weights.Length || pool.Length == 0)
+            bool calculationComplete = false;
+            yield return GetStartAndGoalAsync(baseMap, tensorLabel, result => {
+                startAndGoalPoints = result;
+                calculationComplete = true;
+            });
+
+            while (!calculationComplete)
             {
-                throw new ArgumentException("Invalid input: pool and weights must be non-null, have the same length, and contain at least one element.");
+                yield return null;
             }
+        }
+        private static IEnumerator DifficultyAsync(Tensor<int> field, Tensor<float> neighborScore, Tensor<float> deltaScore, TensorLabel tensorLabel, Tensor<float> result, int steps = 5000, float alpha = 0.5f)
+        {
+            float dx;
+            float dy = dx = 1.0f;
+            float dt = 1.0f;
+            float ddx;
+            float ddy = ddx = Mathf.Pow(1.0f / dx, 2);
+            alpha = Mathf.Min(alpha, (0.5f / (ddx + ddy)) / dt);
 
-            float totalWeight = weights.Sum();
-            if (totalWeight <= 0)
+            var normalizedDeltaScore = new Tensor<float>(deltaScore);
+            tensorLabel.ApplyEachLabel<float>((List<Indice[]> indices) =>
             {
-                throw new ArgumentException("Total weight must be positive.");
-            }
+                normalizedDeltaScore[indices] = normalizedDeltaScore[indices].RN2C();
+            });
 
-            float randomValue = (float)Random.NextDouble() * totalWeight;
-
-            for (int i = 0; i < pool.Length; i++)
+            result = normalizedDeltaScore;
+            var mask = field == 0;
+            var maskedIndice = mask.ArgWhere();
+            var notMaskedIndice = (!mask).ArgWhere();
+            var kernel = Tensor<float>.FromArray(new[,]
             {
-                if (randomValue < weights[i])
+                {0f, ddy, 0f},
+                {ddx, 0f, ddx},
+                {0f, ddy, 0f},
+            }) * (alpha * dt);
+            var neighborCount = alpha * dt * ddx * neighborScore;
+
+            for (int i = 0; i < steps; i++)
+            {
+                var lap = result.Pad(1, new ConstantPadMode<float>(0f)).Convolve(kernel);
+                result[maskedIndice] += lap[maskedIndice] - neighborCount[maskedIndice] * result[maskedIndice];
+                result[notMaskedIndice] = 0f;
+
+                if (i % 100 == 0) // 100ステップごとにフレームを譲る
                 {
-                    return pool[i];
+                    yield return new WaitForEndOfFrame();
                 }
-                randomValue -= weights[i];
             }
-
-            // This should never happen if the weights sum to totalWeight
-            return pool[pool.Length - 1];
         }
-        public static T Choice<T>(T[] pool) => SelectRandom(pool);
+
+        private static IEnumerator FluidDifficultyAsync(Tensor<int> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, Tensor<float> result, int maxSteps = 5000, float sourceAmount = 3.0f)
+        {
+            var stable = (deltaScore.MinMaxNormalize() + 1f) * 0.5f;
+            var maxPeak = normalizedPeak > 0;
+            var sources = Tensor<float>.Zeros(field);
+
+            void dNorm(Tensor<bool> selector)
+            {
+                stable[selector] += normalizedPeak[selector] * 0.1f;
+                var selectorPeak = selector & maxPeak;
+                sources[selectorPeak] = normalizedPeak[selectorPeak] * sourceAmount * 0.5f;
+            }
+            tensorLabel.ApplyEachLabel<float>(dNorm);
+
+            yield return FluidAsync(sources, stable, field == 0, -sourceAmount, sourceAmount, result, maxSteps);
+        }
+
+        private static IEnumerator FluidAsync(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, Tensor<float> result, int maxSteps = 1000, float _alpha = 0.5f)
+        {
+            float alpha = Mathf.Min(_alpha, 1.0f);
+            var floatMask = mask.Cast<float>();
+            var floatPadMode = new ConstantPadMode<float>(0);
+            (int i, int j)[] rollOffsets = (new[] { (0, 1), (0, -1), (1, 0), (-1, 0) });
+            Tensor<float> countTable = Tensor<float>.Stack(rollOffsets.Select(ij => floatMask.Slide(ij.i, ij.j, floatPadMode)), 0).Sum(0) * floatMask;
+            var updatedChecker = ((stables != 0) & (countTable > 0)).Cast<float>();
+            var mulCountTable = 1 / (countTable + 1);
+            var fluidCurrent = new Tensor<float>(sources);
+            var thresFill = sources.Mean() * 0.2f + sources.Min() * 0.8f;
+            var filledSteps = Tensor<int>.Full(-1, sources);
+            var filled = !mask;
+
+            for (int step = 0; step < maxSteps; step++)
+            {
+                var newFilled = (filledSteps == -1) & (fluidCurrent > thresFill);
+                filledSteps[newFilled] = step;
+                filled |= newFilled;
+                if (filled.All()) break;
+                var currentFluid = fluidCurrent * stables;
+                var neighborSum = Tensor<float>.Stack(rollOffsets.Select(ij => (currentFluid * floatMask).Slide(ij.i, ij.j, floatPadMode)), 0).Sum(0);
+                fluidCurrent += alpha * (neighborSum - currentFluid * countTable) * updatedChecker * mulCountTable;
+                fluidCurrent = fluidCurrent.Clip(fmin, fmax);
+
+                if (step % 100 == 0) // 100ステップごとにフレームを譲る
+                {
+                    yield return new WaitForEndOfFrame();
+                }
+            }
+            filledSteps[(filledSteps == -1) & mask] = filledSteps.Max() + 1;
+            result = filledSteps.MaxNormalize();
+        }
     }
+
+    
 }

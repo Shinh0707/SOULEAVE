@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mazegamestats>
+    <stat name="MaxMP" value="20"/>
+    <stat name="MaxSight" value="2"/>
+    <stat name="RestoreMPPerSecond" value="2"/>
+    <stat name="RestoreSightPerSecond" value="0.4"/>
+    <stat name="HintDuration" value="3"/>
+    <stat name="HintMPCost" value="10"/>
+    <stat name="TeleportMPCost" value="5"/>
+    <stat name="TeleportSightCostPerDistance" value="0.5"/>
+    <stat name="MinSightForTeleport" value="1"/>
+    <stat name="MPForBrightnessValuePerSecond" value="20"/>
+    <stat name="MPForBrightnessCostPerSecond" value="5"/>
+    <stat name="MPForBrightnessDecayPerSecond" value="80"/>
+    <stat name="TransparentDuration" value="1"/>
+    <stat name="MonsterAddingInterval" value="20"/>
+    <stat name="VisibleBorder" value="0.05"/>
+    <stat name="EnemyDamage" value="1"/>
+</mazegamestats>

@@ -17,9 +17,9 @@ public class MazeGenerator : MonoBehaviour
     private void Start()
     {
         // テスト用のTensorデータ (後で外部から受け取るように変更予定)
-        (mazeData, _) = MazeCreater.CreatePlainMaze(mazeWidth, mazeHeight, minRouteArea);
+        //(mazeData, _) = MazeCreater.CreatePlainMaze(mazeWidth, mazeHeight, minRouteArea);
 
-        GenerateMaze(mazeData, playerStartPosition);
+        //GenerateMaze(mazeData, playerStartPosition);
     }
 
     public void GenerateMaze(Tensor<int> maze, Vector2Int centerPosition)
