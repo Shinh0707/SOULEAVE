@@ -640,7 +640,7 @@ namespace SL.Lib
             return (maxPeaks, minPeaks, normalizedPeak);
         }
 
-        public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, float _alpha,int maxSteps = 1000)
+        public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, int maxSteps = 1000, float _alpha=0.5f)
         {
             float alpha = Mathf.Min(_alpha, 1.0f);
             var floatMask = mask.Cast<float>();
@@ -669,6 +669,23 @@ namespace SL.Lib
             }
             filledSteps[(filledSteps == -1) & mask] = filledSteps.Max() + 1;
             return filledSteps.MaxNormalize();
+        }
+
+        public static Tensor<float> FluidDifficulty(Tensor<float> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, int maxSteps = 1000, float sourceAmount=3.0f)
+        {
+            var stable = (deltaScore.MinMaxNormalize() + 1f) * 0.5f;
+            var maxPeak = normalizedPeak > 0;
+            var sources = Tensor<float>.Zeros(field);
+
+            void dNorm(Tensor<bool> selector)
+            {
+                stable[selector] += normalizedPeak[selector] * 0.1f;
+                var selectorPeak = selector & maxPeak;
+                sources[selectorPeak] = normalizedPeak[selectorPeak] * sourceAmount * 0.5f;
+            }
+            tensorLabel.ApplyEachLabel<float>(dNorm);
+
+            return Fluid(sources, stable, field == 0, -sourceAmount, sourceAmount, maxSteps);
         }
     }
 
