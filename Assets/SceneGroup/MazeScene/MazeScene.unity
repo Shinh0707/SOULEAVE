@@ -152,11 +152,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 77790d778bf3249428ecb7d46f99b620, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mazeWidth: 20
+  mazeHeight: 20
+  minRouteArea: 30
+  playerStartPosition: {x: 0, y: 0}
   tilemap: {fileID: 1332993569}
   tileList:
   - {fileID: 11400000, guid: 740cd93554c341c469d2afcb412ca216, type: 2}
   - {fileID: 11400000, guid: 1f07789ca16ae114eb68e1f6786c7934, type: 2}
-  playerStartPosition: {x: 0, y: 0}
 --- !u!4 &762998803
 Transform:
   m_ObjectHideFlags: 0
@@ -387,7 +390,7 @@ TilemapRenderer:
   m_ChunkCullingBounds: {x: 0, y: 0, z: 0}
   m_MaxChunkCount: 16
   m_MaxFrameAge: 16
-  m_SortOrder: 0
+  m_SortOrder: 2
   m_Mode: 0
   m_DetectChunkCullingBounds: 0
   m_MaskInteraction: 0

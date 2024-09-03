@@ -65,31 +65,6 @@ namespace SL.Lib
                     return "Unknown";
             }
         }
-
-        /// <summary>
-        /// Creates a string representation of an array of Indice objects.
-        /// </summary>
-        /// <param name="indices">The array of Indice objects to represent as a string.</param>
-        /// <returns>A string representation of the Indice array.</returns>
-        public static string ArrayToString(Indice[] indices)
-        {
-            if (indices == null)
-                return "null";
-
-            return $"[{string.Join(", ", indices.Select(i => i.ToString()))}]";
-        }
-    }
-    public static class IndiceExtensions
-    {
-        /// <summary>
-        /// Creates a debug-friendly string representation of an array of Indice objects.
-        /// </summary>
-        /// <param name="indices">The array of Indice objects.</param>
-        /// <returns>A debug-friendly string representation of the Indice array.</returns>
-        public static string ToDebugString(this Indice[] indices)
-        {
-            return Indice.ArrayToString(indices);
-        }
     }
 
 }

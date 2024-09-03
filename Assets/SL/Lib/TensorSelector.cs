@@ -18,7 +18,7 @@ namespace SL.Lib
             {
                 throw new ArgumentException("Condition tensor must have the same shape as this tensor.");
             }
-            List<Indice[]> indices = new List<Indice[]>();
+            List<Indice[]> indices = new();
             for (int i = 0; i < _data.Length; i++)
             {
                 if (Convert.ToBoolean(condition._data[i]))

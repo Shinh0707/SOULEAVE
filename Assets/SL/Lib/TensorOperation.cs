@@ -121,17 +121,9 @@ namespace SL.Lib
 
         private static Tensor<T> ElementwiseOperation(Tensor<T> a, Tensor<T> b, Func<T, T, T> operation)
         {
-            int[] broadcastShape = BroadcastShapes(a.Shape, b.Shape);
-            Tensor<T> result = Empty(broadcastShape);
-
-            for (int i = 0; i < result._data.Length; i++)
-            {
-                var indices = result.GetIndices(i);
-                T valueA = a.GetBroadcastValue(indices);
-                T valueB = b.GetBroadcastValue(indices);
-                result._data[i] = operation(valueA, valueB);
-            }
-
+            //Debug.Log($"operation:{operation.Method.Name}\na={a}\nb={b}");
+            Tensor<T> result = Broadcast(a, b, operation);
+            //Debug.Log($"result={result}");
             return result;
         }
 
@@ -146,20 +138,7 @@ namespace SL.Lib
             return result;
         }
 
-        private static Tensor<bool> ElementwiseOperation(Tensor<T> a, Tensor<T> b, Func<T, T, bool> operation)
-        {
-            int[] broadcastShape = BroadcastShapes(a.Shape, b.Shape);
-            Tensor<bool> result = Tensor<bool>.Empty(broadcastShape);
-
-            for (int i = 0; i < result._data.Length; i++)
-            {
-                var indices = result.GetIndices(i);
-                T valueA = a.GetBroadcastValue(indices);
-                T valueB = b.GetBroadcastValue(indices);
-                result._data[i] = operation(valueA, valueB);
-            }
-            return result;
-        }
+        private static Tensor<bool> ElementwiseOperation(Tensor<T> a, Tensor<T> b, Func<T, T, bool> operation) => Broadcast(a, b, operation);
 
         private static Tensor<bool> ElementwiseOperation(Tensor<T> a, T scalar, Func<T, T, bool> operation)
         {
@@ -191,185 +170,58 @@ namespace SL.Lib
             }
             return new Tensor<TResult>(newData, Shape);
         }
-        private T GetBroadcastValue(Indice[] indices)
-        {
-            if (indices.Length != Shape.Length)
-            {
-                throw new ArgumentException("Number of indices must match the number of dimensions in the tensor.");
-            }
-
-            int[] adjustedIndices = new int[Shape.Length];
-            for (int i = 0; i < Shape.Length; i++)
-            {
-                if (Shape[i] == 1)
-                {
-                    adjustedIndices[i] = 0;
-                }
-                else
-                {
-                    int[] dimIndices = indices[i].GetIndices(Shape[i]);
-                    if (dimIndices.Length == 0)
-                    {
-                        throw new ArgumentException($"Invalid index for dimension {i}");
-                    }
-                    adjustedIndices[i] = dimIndices[0] % Shape[i];  // Use modulo to handle wrap-around
-                }
-            }
-
-            return this[adjustedIndices].item;
-        }
-
-        private static int[] BroadcastShapes(int[] shapeA, int[] shapeB)
-        {
-            int rank = Math.Max(shapeA.Length, shapeB.Length);
-            int[] result = new int[rank];
-
-            for (int i = 1; i <= rank; i++)
-            {
-                int dimA = i <= shapeA.Length ? shapeA[^i] : 1;
-                int dimB = i <= shapeB.Length ? shapeB[^i] : 1;
-
-                if (dimA == dimB || dimA == 1 || dimB == 1)
-                {
-                    result[^i] = Math.Max(dimA, dimB);
-                }
-                else
-                {
-                    throw new ArgumentException($"Shapes are not compatible for broadcasting at dimension {rank - i}. DimA: {dimA}, DimB: {dimB}");
-                }
-            }
-
-            return result;
-        }
     }
     public static class NumericOperations
     {
         public static T Add<T>(T a, T b)
         {
-            if (typeof(T) == typeof(float))
-                return (T)(object)((float)(object)a + (float)(object)b);
-            if (typeof(T) == typeof(double))
-                return (T)(object)((double)(object)a + (double)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a + (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a + (long)(object)b);
-            if (typeof(T) == typeof(decimal))
-                return (T)(object)((decimal)(object)a + (decimal)(object)b);
-
-            // ‚»‚Ì‘¼‚Ì”’lŒ^‚â“ÁŽê‚ÈŒ^‚Ìê‡
-            try
-            {
-                return (T)Convert.ChangeType(
-                    Convert.ToDouble(a) + Convert.ToDouble(b),
-                    typeof(T));
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Type {typeof(T).Name} is not supported for addition.", ex);
-            }
+            return PerformOperation(a, b, (float x, float y) => x + y,
+                                          (double x, double y) => x + y,
+                                          (int x, int y) => x + y,
+                                          (long x, long y) => x + y,
+                                          (decimal x, decimal y) => x + y,
+                                          "addition");
         }
 
         public static T Multiply<T>(T a, T b)
         {
-            if (typeof(T) == typeof(float))
-                return (T)(object)((float)(object)a * (float)(object)b);
-            if (typeof(T) == typeof(double))
-                return (T)(object)((double)(object)a * (double)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a * (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a * (long)(object)b);
-            if (typeof(T) == typeof(decimal))
-                return (T)(object)((decimal)(object)a * (decimal)(object)b);
-
-            // ‚»‚Ì‘¼‚Ì”’lŒ^‚â“ÁŽê‚ÈŒ^‚Ìê‡
-            try
-            {
-                return (T)Convert.ChangeType(
-                    Convert.ToDouble(a) * Convert.ToDouble(b),
-                    typeof(T));
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Type {typeof(T).Name} is not supported for multiplication.", ex);
-            }
+            return PerformOperation(a, b, (float x, float y) => x * y,
+                                          (double x, double y) => x * y,
+                                          (int x, int y) => x * y,
+                                          (long x, long y) => x * y,
+                                          (decimal x, decimal y) => x * y,
+                                          "multiplication");
         }
 
         public static T Subtract<T>(T a, T b)
         {
-            if (typeof(T) == typeof(float))
-                return (T)(object)((float)(object)a - (float)(object)b);
-            if (typeof(T) == typeof(double))
-                return (T)(object)((double)(object)a - (double)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a - (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a - (long)(object)b);
-            if (typeof(T) == typeof(decimal))
-                return (T)(object)((decimal)(object)a - (decimal)(object)b);
-
-            // ‚»‚Ì‘¼‚Ì”’lŒ^‚â“ÁŽê‚ÈŒ^‚Ìê‡
-            try
-            {
-                return (T)Convert.ChangeType(
-                    Convert.ToDouble(a) - Convert.ToDouble(b),
-                    typeof(T));
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Type {typeof(T).Name} is not supported for subtraction.", ex);
-            }
+            return PerformOperation(a, b, (float x, float y) => x - y,
+                                          (double x, double y) => x - y,
+                                          (int x, int y) => x - y,
+                                          (long x, long y) => x - y,
+                                          (decimal x, decimal y) => x - y,
+                                          "subtraction");
         }
 
         public static T Divide<T>(T a, T b)
         {
-            if (typeof(T) == typeof(float))
-                return (T)(object)((float)(object)a / (float)(object)b);
-            if (typeof(T) == typeof(double))
-                return (T)(object)((double)(object)a / (double)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a / (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a / (long)(object)b);
-            if (typeof(T) == typeof(decimal))
-                return (T)(object)((decimal)(object)a / (decimal)(object)b);
-
-            // ‚»‚Ì‘¼‚Ì”’lŒ^‚â“ÁŽê‚ÈŒ^‚Ìê‡
-            try
-            {
-                return (T)Convert.ChangeType(
-                    Convert.ToDouble(a) / Convert.ToDouble(b),
-                    typeof(T));
-            }
-            catch (Exception ex)
-            {
-                throw new ArgumentException($"Type {typeof(T).Name} is not supported for division.", ex);
-            }
+            return PerformOperation(a, b, (float x, float y) => x / y,
+                                          (double x, double y) => x / y,
+                                          (int x, int y) => x / y,
+                                          (long x, long y) => x / y,
+                                          (decimal x, decimal y) => x / y,
+                                          "division");
         }
 
         public static T Negate<T>(T value)
         {
-            if (typeof(T) == typeof(int))
-                return (T)(object)(-(int)(object)value);
-            if (typeof(T) == typeof(long))
-                return (T)(object)(-(long)(object)value);
-            if (typeof(T) == typeof(float))
-                return (T)(object)(-(float)(object)value);
-            if (typeof(T) == typeof(double))
-                return (T)(object)(-(double)(object)value);
-            if (typeof(T) == typeof(decimal))
-                return (T)(object)(-(decimal)(object)value);
-
-            // ‚»‚Ì‘¼‚Ì”’lŒ^‚â“ÁŽê‚ÈŒ^‚Ìê‡
-            try
-            {
-                return (T)Convert.ChangeType(-Convert.ToDouble(value), typeof(T));
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Negation is not supported for type {typeof(T).Name}.", ex);
-            }
+            return PerformUnaryOperation(value,
+                (float x) => -x,
+                (double x) => -x,
+                (int x) => -x,
+                (long x) => -x,
+                (decimal x) => -x,
+                "negation");
         }
 
         public static T Not<T>(T value)
@@ -379,38 +231,31 @@ namespace SL.Lib
             return (T)(object)!Convert.ToBoolean(value);
         }
 
-        // Helper methods for logical operations
         public static T BitwiseAnd<T>(T a, T b)
         {
-            if (typeof(T) == typeof(bool))
-                return (T)(object)((bool)(object)a & (bool)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a & (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a & (long)(object)b);
-            throw new NotSupportedException($"Bitwise AND is not supported for type {typeof(T)}");
+            return PerformBitwiseOperation(a, b,
+                (bool x, bool y) => x && y,
+                (int x, int y) => x & y,
+                (long x, long y) => x & y,
+                "Bitwise AND");
         }
 
         public static T BitwiseOr<T>(T a, T b)
         {
-            if (typeof(T) == typeof(bool))
-                return (T)(object)((bool)(object)a | (bool)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a | (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a | (long)(object)b);
-            throw new NotSupportedException($"Bitwise OR is not supported for type {typeof(T)}");
+            return PerformBitwiseOperation(a, b,
+                (bool x, bool y) => x || y,
+                (int x, int y) => x | y,
+                (long x, long y) => x | y,
+                "Bitwise OR");
         }
 
         public static T BitwiseXor<T>(T a, T b)
         {
-            if (typeof(T) == typeof(bool))
-                return (T)(object)((bool)(object)a ^ (bool)(object)b);
-            if (typeof(T) == typeof(int))
-                return (T)(object)((int)(object)a ^ (int)(object)b);
-            if (typeof(T) == typeof(long))
-                return (T)(object)((long)(object)a ^ (long)(object)b);
-            throw new NotSupportedException($"Bitwise XOR is not supported for type {typeof(T)}");
+            return PerformBitwiseOperation(a, b,
+                (bool x, bool y) => x ^ y,
+                (int x, int y) => x ^ y,
+                (long x, long y) => x ^ y,
+                "Bitwise XOR");
         }
 
         public static T One<T>()
@@ -422,6 +267,7 @@ namespace SL.Lib
             if (typeof(T) == typeof(bool)) return (T)(object)true;
             throw new NotSupportedException($"Type {typeof(T)} is not supported for One operation.");
         }
+
         public static T Zero<T>()
         {
             if (typeof(T) == typeof(int)) return (T)(object)0;
@@ -430,6 +276,82 @@ namespace SL.Lib
             if (typeof(T) == typeof(decimal)) return (T)(object)0m;
             if (typeof(T) == typeof(bool)) return (T)(object)false;
             throw new NotSupportedException($"Type {typeof(T)} is not supported for Zero operation.");
+        }
+
+        private static T PerformOperation<T>(T a, T b,
+            Func<float, float, float> floatOp,
+            Func<double, double, double> doubleOp,
+            Func<int, int, int> intOp,
+            Func<long, long, long> longOp,
+            Func<decimal, decimal, decimal> decimalOp,
+            string operationName)
+        {
+            if (typeof(T) == typeof(float))
+                return (T)(object)floatOp((float)(object)a, (float)(object)b);
+            if (typeof(T) == typeof(double))
+                return (T)(object)doubleOp((double)(object)a, (double)(object)b);
+            if (typeof(T) == typeof(int))
+                return (T)(object)intOp((int)(object)a, (int)(object)b);
+            if (typeof(T) == typeof(long))
+                return (T)(object)longOp((long)(object)a, (long)(object)b);
+            if (typeof(T) == typeof(decimal))
+                return (T)(object)decimalOp((decimal)(object)a, (decimal)(object)b);
+
+            try
+            {
+                return (T)Convert.ChangeType(
+                    doubleOp(Convert.ToDouble(a), Convert.ToDouble(b)),
+                    typeof(T));
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Type {typeof(T).Name} is not supported for {operationName}.", ex);
+            }
+        }
+
+        private static T PerformUnaryOperation<T>(T value,
+            Func<float, float> floatOp,
+            Func<double, double> doubleOp,
+            Func<int, int> intOp,
+            Func<long, long> longOp,
+            Func<decimal, decimal> decimalOp,
+            string operationName)
+        {
+            if (typeof(T) == typeof(float))
+                return (T)(object)floatOp((float)(object)value);
+            if (typeof(T) == typeof(double))
+                return (T)(object)doubleOp((double)(object)value);
+            if (typeof(T) == typeof(int))
+                return (T)(object)intOp((int)(object)value);
+            if (typeof(T) == typeof(long))
+                return (T)(object)longOp((long)(object)value);
+            if (typeof(T) == typeof(decimal))
+                return (T)(object)decimalOp((decimal)(object)value);
+
+            try
+            {
+                return (T)Convert.ChangeType(doubleOp(Convert.ToDouble(value)), typeof(T));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"{operationName} is not supported for type {typeof(T).Name}.", ex);
+            }
+        }
+
+        private static T PerformBitwiseOperation<T>(T a, T b,
+            Func<bool, bool, bool> boolOp,
+            Func<int, int, int> intOp,
+            Func<long, long, long> longOp,
+            string operationName)
+        {
+            if (typeof(T) == typeof(bool))
+                return (T)(object)boolOp((bool)(object)a, (bool)(object)b);
+            if (typeof(T) == typeof(int))
+                return (T)(object)intOp((int)(object)a, (int)(object)b);
+            if (typeof(T) == typeof(long))
+                return (T)(object)longOp((long)(object)a, (long)(object)b);
+
+            throw new NotSupportedException($"{operationName} is not supported for type {typeof(T)}");
         }
     }
 
@@ -458,41 +380,69 @@ namespace SL.Lib
      */
     public partial class Tensor<T> where T : IComparable<T>
     {
-        /// <summary>
-        /// Stacks a list of tensors along the specified dimension.
-        /// </summary>
-        /// <param name="tensors">The list of tensors to stack.</param>
-        /// <param name="dim">The dimension along which to stack the tensors.</param>
-        /// <returns>A new tensor containing the stacked tensors.</returns>
         public static Tensor<T> Stack(IEnumerable<Tensor<T>> tensors, int dim)
         {
-            if (tensors == null || !tensors.Any())
-                throw new ArgumentException("The list of tensors cannot be null or empty.", nameof(tensors));
+            var tensorList = tensors.ToList();
+            if (tensorList.Count == 0)
+                throw new ArgumentException("The list of tensors cannot be empty.", nameof(tensors));
 
-            var firstTensor = tensors.First();
-            if (dim < 0 || dim > firstTensor.Shape.Length)
+            var firstTensor = tensorList[0];
+            if (dim < 0 || dim > firstTensor.ndim)
                 throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
 
-            // Validate that all tensors have the same shape
-            if (!tensors.All(t => t.Shape.SequenceEqual(firstTensor.Shape)))
-                throw new ArgumentException("All tensors must have the same shape.");
+            //Debug.Log($"Stacking {tensorList.Count} tensors along dimension {dim}");
 
-            int[] newShape = new int[firstTensor.Shape.Length + 1];
-            Array.Copy(firstTensor.Shape, 0, newShape, 0, dim);
-            newShape[dim] = tensors.Count();
-            Array.Copy(firstTensor.Shape, dim, newShape, dim + 1, firstTensor.Shape.Length - dim);
-
-            Tensor<T> result = Empty(newShape);
-
-            var tensorsList = tensors.ToList();
-            for (int i = 0; i < result.Size(); i++)
+            // Validate shapes and calculate new shape
+            int[] newShape = firstTensor.Shape.Insert(0, dim);
+            for (int i = 0; i < tensorList.Count; i++)
             {
-                var indices = result.GetApparentPosition(i);
-                int tensorIndex = indices[dim];
-                indices = indices.Take(dim).Concat(indices.Skip(dim + 1)).ToArray();
-                result._data[i] = tensorsList[tensorIndex][indices].item;
+                if (!tensorList[i].MatchShape(firstTensor))
+                    throw new ArgumentException($"Tensor at index {i} has a different shape.");
+                newShape[dim] += 1;
             }
 
+            //Debug.Log($"New shape: [{string.Join(", ", newShape)}]");
+
+            // Calculate new strides
+            int[] newStrides = new int[newShape.Length];
+            int stride = 1;
+            for (int i = newShape.Length - 1; i >= 0; i--)
+            {
+                newStrides[i] = stride;
+                stride *= newShape[i];
+            }
+
+            //Debug.Log($"New strides: [{string.Join(", ", newStrides)}]");
+
+            // Create result tensor
+            T[] newData = new T[stride];
+            var result = new Tensor<T>(newData, newShape, newStrides, 0, false, false);
+
+            // Perform stacking
+            int[] indices = new int[newShape.Length];
+            int[] srcIndices = new int[firstTensor.ndim];
+            for (int i = 0; i < newData.Length; i++)
+            {
+                result.GetIndices(i, indices);
+                int tensorIndex = indices[dim];
+                Array.Copy(indices, srcIndices, dim);
+                Array.Copy(indices, dim + 1, srcIndices, dim, srcIndices.Length - dim);
+
+                //Debug.Log($"Processing element {i}: Result indices: [{string.Join(", ", indices)}], Source indices: [{string.Join(", ", srcIndices)}]");
+
+                int srcOffset = 0;
+                for (int j = 0; j < srcIndices.Length; j++)
+                {
+                    srcOffset += srcIndices[j] * tensorList[tensorIndex].Strides[j];
+                }
+
+                //Debug.Log($"Source offset: {srcOffset}, Tensor index: {tensorIndex}");
+
+                newData[i] = tensorList[tensorIndex]._data[srcOffset];
+            }
+
+            result._data = newData;
+            //Debug.Log("Stacking completed");
             return result;
         }
 
@@ -504,33 +454,65 @@ namespace SL.Lib
         /// <returns>A new tensor containing the concatenated tensors.</returns>
         public static Tensor<T> Concat(List<Tensor<T>> tensors, int dim)
         {
-            if (tensors == null || tensors.Count == 0)
-                throw new ArgumentException("The list of tensors cannot be null or empty.", nameof(tensors));
+            var tensorList = tensors.ToList();
+            if (tensorList.Count == 0)
+                throw new ArgumentException("The list of tensors cannot be empty.", nameof(tensors));
 
-            if (dim < 0 || dim >= tensors[0].Shape.Length)
+            var firstTensor = tensorList[0];
+            if (dim < 0 || dim >= firstTensor.ndim)
                 throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
 
-            // Validate that all tensors have the same shape except for the concatenation dimension
-            var firstShape = tensors[0].Shape;
-            if (!tensors.All(t => t.Shape.Length == firstShape.Length &&
-                                  t.Shape.Where((s, i) => i != dim).SequenceEqual(firstShape.Where((s, i) => i != dim))))
-                throw new ArgumentException("All tensors must have the same shape except for the concatenation dimension.");
-
-            int[] newShape = (int[])firstShape.Clone();
-            newShape[dim] = tensors.Sum(t => t.Shape[dim]);
-
-            Tensor<T> result = Empty(newShape);
-
-            int offset = 0;
-            for (int i = 0; i < tensors.Count; i++)
+            // Validate shapes and calculate new shape
+            int[] newShape = (int[])firstTensor.Shape.Clone();
+            for (int i = 1; i < tensorList.Count; i++)
             {
-                for (int j = 0; j < tensors[i].Size(); j++)
+                if (tensorList[i].ndim != firstTensor.ndim)
+                    throw new ArgumentException($"Tensor at index {i} has a different number of dimensions.");
+
+                for (int j = 0; j < newShape.Length; j++)
                 {
-                    var indices = tensors[i].GetApparentPosition(j);
-                    indices[dim] += offset;
-                    result[indices] = tensors[i]._data[j];
+                    if (j == dim)
+                        newShape[j] += tensorList[i].Shape[j];
+                    else if (newShape[j] != tensorList[i].Shape[j])
+                        throw new ArgumentException($"Tensor at index {i} has incompatible shape.");
                 }
-                offset += tensors[i].Shape[dim];
+            }
+
+            // Calculate new strides
+            int[] newStrides = new int[newShape.Length];
+            int stride = 1;
+            for (int i = newShape.Length - 1; i >= 0; i--)
+            {
+                newStrides[i] = stride;
+                stride *= newShape[i];
+            }
+
+            // Create result tensor
+            T[] newData = new T[stride];
+            var result = new Tensor<T>(newData, newShape, newStrides, 0, false, false);
+
+            // Perform concatenation
+            int[] indices = new int[newShape.Length];
+            int[] srcIndices = new int[newShape.Length];
+            int offset = 0;
+            for (int t = 0; t < tensorList.Count; t++)
+            {
+                var tensor = tensorList[t];
+                for (int i = 0; i < tensor.Size(); i++)
+                {
+                    tensor.GetIndices(i, srcIndices);
+                    Array.Copy(srcIndices, indices, newShape.Length);
+                    indices[dim] += offset;
+
+                    int destOffset = 0;
+                    for (int j = 0; j < indices.Length; j++)
+                    {
+                        destOffset += indices[j] * newStrides[j];
+                    }
+
+                    newData[destOffset] = tensor._data[tensor.Offset + i];
+                }
+                offset += tensor.Shape[dim];
             }
 
             return result;
@@ -544,34 +526,69 @@ namespace SL.Lib
         /// <returns>A new padded tensor.</returns>
         public Tensor<T> Pad(List<(int, int)> paddings, PadMode<T> padMode)
         {
-            if (paddings == null || paddings.Count != Shape.Length)
+            if (paddings == null || paddings.Count != ndim)
                 throw new ArgumentException("Paddings must be specified for each dimension.", nameof(paddings));
 
-            int[] newShape = new int[Shape.Length];
-            for (int i = 0; i < Shape.Length; i++)
+            int[] newShape = new int[ndim];
+            int[] paddingStart = new int[ndim];
+            for (int i = 0; i < ndim; i++)
             {
                 newShape[i] = Shape[i] + paddings[i].Item1 + paddings[i].Item2;
+                paddingStart[i] = paddings[i].Item1;
             }
 
-            Tensor<T> result = Empty(newShape);
+            T[] newData = new T[newShape.Aggregate(1, (a, b) => a * b)];
+            var result = new Tensor<T>(newData, newShape);
 
-            for (int i = 0; i < result.Size(); i++)
+            // Optimize for contiguous memory access
+            int fastestChangingDim = ndim - 1;
+            int originalFastestDimSize = Shape[fastestChangingDim];
+            int newFastestDimSize = newShape[fastestChangingDim];
+            int prePadding = paddings[fastestChangingDim].Item1;
+            int postPadding = paddings[fastestChangingDim].Item2;
+
+            // Create a buffer for the fastest changing dimension
+            T[] lineBuffer = new T[newFastestDimSize];
+
+            // Iterate over all other dimensions
+            int[] indices = new int[ndim];
+            int[] newIndices = new int[newShape.Length];
+            for (int i = 0; i < Size() / originalFastestDimSize; i++)
             {
-                var indices = result.GetApparentPosition(i);
-                bool isInOriginalTensor = true;
-                int[] originalIndices = new int[indices.Length];
-
-                for (int j = 0; j < indices.Length; j++)
+                // Calculate indices for other dimensions
+                int temp = i;
+                for (int dim = ndim - 2; dim >= 0; dim--)
                 {
-                    if (indices[j] < paddings[j].Item1 || indices[j] >= newShape[j] - paddings[j].Item2)
-                    {
-                        isInOriginalTensor = false;
-                        break;
-                    }
-                    originalIndices[j] = indices[j] - paddings[j].Item1;
+                    indices[dim] = temp % Shape[dim];
+                    temp /= Shape[dim];
+                    newIndices[dim] = indices[dim] + paddingStart[dim];
                 }
 
-                result._data[i] = isInOriginalTensor ? this[originalIndices].item : padMode.GetPaddedValue(this, indices);
+                // Handle padding for the current line
+                for (int j = 0; j < prePadding; j++)
+                {
+                    newIndices[fastestChangingDim] = j;
+                    lineBuffer[j] = padMode.GetPaddedValue(this,newIndices);
+                }
+
+                // Copy original data
+                Array.Copy(_data, i * originalFastestDimSize, lineBuffer, prePadding, originalFastestDimSize);
+
+                // Handle post-padding
+                for (int j = 0; j < postPadding; j++)
+                {
+                    newIndices[fastestChangingDim] = prePadding + originalFastestDimSize + j;
+                    lineBuffer[prePadding + originalFastestDimSize + j] = padMode.GetPaddedValue(this, newIndices);
+                }
+
+                // Copy the entire line to the result tensor
+                int destIndex = 0;
+                for (int dim = 0; dim < newShape.Length - 1; dim++)
+                {
+                    destIndex = destIndex * newShape[dim] + newIndices[dim];
+                }
+                destIndex *= newFastestDimSize;
+                Array.Copy(lineBuffer, 0, newData, destIndex, newFastestDimSize);
             }
 
             return result;
@@ -722,14 +739,9 @@ namespace SL.Lib
         /// <returns>The mean value.</returns>
         public float Mean() => Convert.ToSingle(Sum()) / Size();
 
-        /// <summary>
-        /// Computes the difference along the specified dimension.
-        /// </summary>
-        /// <param name="dim">The dimension along which to compute the difference.</param>
-        /// <returns>A new tensor containing the differences.</returns>
         public Tensor<T> Diff(int dim = 0)
         {
-            if (dim < 0 || dim >= Shape.Length)
+            if (dim < 0 || dim >= ndim)
                 throw new ArgumentOutOfRangeException(nameof(dim), "Dimension is out of range.");
 
             int[] newShape = (int[])Shape.Clone();
@@ -737,12 +749,19 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
+            int[] indices = new int[ndim];
+            int[] nextIndices = new int[ndim];
+
             for (int i = 0; i < result.Size(); i++)
             {
-                var indices = result.GetApparentPosition(i);
-                var nextIndices = (int[])indices.Clone();
+                result.GetIndices(i, indices);
+                Array.Copy(indices, nextIndices, indices.Length);
                 nextIndices[dim]++;
-                result._data[i] = NumericOperations.Subtract(this[nextIndices], this[indices]).item;
+
+                int currentIndex = GetFlatIndex(indices);
+                int nextIndex = GetFlatIndex(nextIndices);
+
+                result._data[i] = NumericOperations.Subtract(_data[nextIndex], _data[currentIndex]);
             }
 
             return result;
@@ -750,10 +769,16 @@ namespace SL.Lib
 
         private Tensor<T> ReduceOperation(int[] dims, bool keepDims, Func<T, T, T> operation)
         {
-            if (dims == null)
+            if (dims == null || dims.Length == 0)
             {
-                T scalarResult = _data.Aggregate(operation);
-                return keepDims ? new Tensor<T>(new T[] { scalarResult }, Shape.Select(_ => 1).ToArray()) : FromArray(new T[] { scalarResult });
+                T scalarResult = _data[0];
+                for (int i = 1; i < _data.Length; i++)
+                {
+                    scalarResult = operation(scalarResult, _data[i]);
+                }
+                return keepDims
+                    ? new Tensor<T>(new T[] { scalarResult }, Enumerable.Repeat(1, ndim).ToArray())
+                    : new Tensor<T>(new T[] { scalarResult }, new int[] { 1 });
             }
 
             int[] newShape = keepDims ? Shape.ToArray() : Shape.Where((_, i) => !dims.Contains(i)).ToArray();
@@ -766,24 +791,26 @@ namespace SL.Lib
             }
 
             Tensor<T> result = Empty(newShape);
+            T[] resultData = result._data;
+
+            int[] indices = new int[ndim];
+            int[] resultIndices = new int[newShape.Length];
 
             for (int i = 0; i < Size(); i++)
             {
-                var indices = GetApparentPosition(i);
-                var resultIndices = GetReducedIndices(indices, dims, keepDims);
+                GetIndices(i, indices);
+                GetReducedIndices(indices, dims, keepDims, resultIndices);
                 int resultIndex = result.GetFlatIndex(resultIndices);
 
-                result._data[resultIndex] = operation(result._data[resultIndex], this._data[i]);
+                resultData[resultIndex] = operation(resultData[resultIndex], _data[i]);
             }
 
             return result;
         }
 
-        private int[] GetReducedIndices(int[] indices, int[] dims, bool keepDims)
+        private void GetReducedIndices(int[] indices, int[] dims, bool keepDims, int[] resultIndices)
         {
-            int[] resultIndices = new int[keepDims ? indices.Length : indices.Length - dims.Length];
             int resultDim = 0;
-
             for (int i = 0; i < indices.Length; i++)
             {
                 if (!dims.Contains(i))
@@ -795,8 +822,6 @@ namespace SL.Lib
                     resultIndices[resultDim++] = 0;
                 }
             }
-
-            return resultIndices;
         }
     }
     /// <summary>
@@ -822,14 +847,12 @@ namespace SL.Lib
     */
     public partial class Tensor<T> where T : IComparable<T>
     {
-        public bool Is2D => Shape.Length == 2;
+        public bool Is2D => ndim == 2;
 
-        public Tensor<T> Convolve<TKernel>(Tensor<TKernel> kernel, ConvolveMode convolveMode, (int rowDim, int colDim) dims) where TKernel : IComparable<TKernel>
+        public Tensor<T> Convolve<TKernel>(Tensor<TKernel> kernel, ConvolveMode convolveMode, (int rowDim, int colDim) dims)
+        where TKernel : IComparable<TKernel>
         {
-            if (typeof(T) != typeof(TKernel))
-                return Convolve(kernel.Cast<T>(), convolveMode, dims);
-
-            if (kernel.Shape.Length != 2)
+            if (kernel.ndim != 2)
                 throw new ArgumentException("Kernel must be 2D.");
 
             int rowPad = 0, colPad = 0;
@@ -845,11 +868,11 @@ namespace SL.Lib
                     break;
             }
 
-            var paddingList = Enumerable.Repeat((0, 0), Shape.Length).ToList();
+            var paddingList = Enumerable.Repeat((0, 0), ndim).ToList();
             paddingList[dims.rowDim] = (rowPad, rowPad);
             paddingList[dims.colDim] = (colPad, colPad);
 
-            Tensor<T> padded = this.Pad(paddingList, new ConstantPadMode<T>(default));
+            Tensor<T> padded = this.Pad(paddingList, new ConstantPadMode<T>(default(T)));
 
             int[] newShape = Shape.ToArray();
             newShape[dims.rowDim] = padded.Shape[dims.rowDim] - kernel.Shape[0] + 1;
@@ -857,25 +880,29 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
+            int[] paddedIndices = new int[ndim];
+            int[] resultIndices = new int[ndim];
+
             for (int i = 0; i < result.Size(); i++)
             {
-                int[] resultIndices = result.GetApparentPosition(i);
-                int[] paddedIndices = (int[])resultIndices.Clone();
+                result.GetIndices(i, resultIndices);
+                Array.Copy(resultIndices, paddedIndices, ndim);
 
-                T sum = NumericOperations.Zero<T>();
+                T sum = default(T);
                 for (int ki = 0; ki < kernel.Shape[0]; ki++)
                 {
                     for (int kj = 0; kj < kernel.Shape[1]; kj++)
                     {
                         paddedIndices[dims.rowDim] = resultIndices[dims.rowDim] + ki;
                         paddedIndices[dims.colDim] = resultIndices[dims.colDim] + kj;
-                        sum = NumericOperations.Add(sum, NumericOperations.Multiply(
-                            padded[paddedIndices].item,
-                            (T)(object)(kernel[ki, kj].item)
-                        ));
+
+                        T paddedValue = padded._data[padded.GetFlatIndex(paddedIndices)];
+                        T kernelValue = (T)Convert.ChangeType(kernel._data[kernel.GetFlatIndex(new[] { ki, kj })], typeof(T));
+
+                        sum = NumericOperations.Add(sum, NumericOperations.Multiply(paddedValue, kernelValue));
                     }
                 }
-                result[resultIndices] = sum;
+                result._data[i] = sum;
             }
 
             return result;
@@ -886,16 +913,19 @@ namespace SL.Lib
 
         public Tensor<bool> GetPeak2D(Tensor<bool> mask, PeakMode mode, (int rowDim, int colDim) dims)
         {
-            if (mask.Shape.Length != Shape.Length || !mask.Shape.SequenceEqual(Shape))
+            if (!mask.Shape.SequenceEqual(Shape))
                 throw new ArgumentException("Mask shape must match tensor shape.");
 
             Tensor<bool> result = Tensor<bool>.Empty(Shape);
 
+            int[] indices = new int[ndim];
+            int[] neighborIndices = new int[ndim];
+
             for (int i = 0; i < Size(); i++)
             {
-                int[] indices = GetApparentPosition(i);
+                GetIndices(i, indices);
 
-                if (!mask[indices].item) continue;
+                if (!mask._data[i]) continue;
 
                 bool isPeak = true;
                 for (int di = -1; di <= 1 && isPeak; di++)
@@ -904,7 +934,7 @@ namespace SL.Lib
                     {
                         if (di == 0 && dj == 0) continue;
 
-                        int[] neighborIndices = (int[])indices.Clone();
+                        Array.Copy(indices, neighborIndices, indices.Length);
                         neighborIndices[dims.rowDim] += di;
                         neighborIndices[dims.colDim] += dj;
 
@@ -912,7 +942,8 @@ namespace SL.Lib
                             neighborIndices[dims.colDim] < 0 || neighborIndices[dims.colDim] >= Shape[dims.colDim])
                             continue;
 
-                        int comparison = this[indices].item.CompareTo(this[neighborIndices].item);
+                        int neighborIndex = GetFlatIndex(neighborIndices);
+                        int comparison = _data[i].CompareTo(_data[neighborIndex]);
                         if ((mode == PeakMode.Maximum && comparison <= 0) ||
                             (mode == PeakMode.Minimum && comparison >= 0))
                         {
@@ -921,7 +952,7 @@ namespace SL.Lib
                     }
                 }
 
-                result[indices] = isPeak;
+                result._data[i] = isPeak;
             }
 
             return result;
@@ -931,10 +962,13 @@ namespace SL.Lib
 
         public Tensor<T> Rotate90(int rotation, (int rowDim, int colDim) dims)
         {
+
             rotation = ((rotation % 4) + 4) % 4; // Normalize rotation to be between 0 and 3
 
             if (rotation == 0)
+            {
                 return new Tensor<T>(this);
+            }
 
             int[] newShape = Shape.ToArray();
             if (rotation % 2 != 0)
@@ -945,14 +979,17 @@ namespace SL.Lib
 
             Tensor<T> result = Empty(newShape);
 
+            int[] indices = new int[Shape.Length];
+            int[] newIndices = new int[Shape.Length];
+
             for (int i = 0; i < Size(); i++)
             {
-                int[] indices = GetApparentPosition(i);
-                int[] newIndices = (int[])indices.Clone();
+                GetIndices(i, indices);
+                Array.Copy(indices, newIndices, indices.Length);
 
                 switch (rotation)
                 {
-                    case 1: // 90 degrees
+                    case 1: // 90 degrees clockwise
                         newIndices[dims.rowDim] = indices[dims.colDim];
                         newIndices[dims.colDim] = Shape[dims.rowDim] - 1 - indices[dims.rowDim];
                         break;
@@ -960,15 +997,24 @@ namespace SL.Lib
                         newIndices[dims.rowDim] = Shape[dims.rowDim] - 1 - indices[dims.rowDim];
                         newIndices[dims.colDim] = Shape[dims.colDim] - 1 - indices[dims.colDim];
                         break;
-                    case 3: // 270 degrees
+                    case 3: // 90 degrees counterclockwise
                         newIndices[dims.rowDim] = Shape[dims.colDim] - 1 - indices[dims.colDim];
                         newIndices[dims.colDim] = indices[dims.rowDim];
                         break;
                 }
 
-                result[newIndices] = this[indices];
-            }
+                int originalFlatIndex = i;
+                int newFlatIndex = result.GetFlatIndex(newIndices);
 
+                if (newFlatIndex < 0 || newFlatIndex >= result.Size())
+                {
+                    Debug.LogError($"Error: New flat index {newFlatIndex} is out of range. Result tensor size: {result.Size()}");
+                }
+                else
+                {
+                    result._data[newFlatIndex] = _data[originalFlatIndex];
+                }
+            }
             return result;
         }
 
@@ -976,17 +1022,20 @@ namespace SL.Lib
 
         public Tensor<T> Roll(int rowOffset, int colOffset, (int rowDim, int colDim) dims)
         {
-            Tensor<T> result = Empty();
+            Tensor<T> result = Empty(Shape);
+
+            int[] indices = new int[ndim];
+            int[] newIndices = new int[ndim];
 
             for (int i = 0; i < Size(); i++)
             {
-                int[] indices = GetApparentPosition(i);
-                int[] newIndices = (int[])indices.Clone();
+                GetIndices(i, indices);
+                Array.Copy(indices, newIndices, indices.Length);
 
                 newIndices[dims.rowDim] = (indices[dims.rowDim] + rowOffset + Shape[dims.rowDim]) % Shape[dims.rowDim];
                 newIndices[dims.colDim] = (indices[dims.colDim] + colOffset + Shape[dims.colDim]) % Shape[dims.colDim];
 
-                result[newIndices] = this[indices];
+                result._data[result.GetFlatIndex(newIndices)] = _data[i];
             }
 
             return result;
@@ -996,12 +1045,15 @@ namespace SL.Lib
 
         public Tensor<T> Slide(int rowOffset, int colOffset, PadMode<T> padMode, (int rowDim, int colDim) dims)
         {
-            Tensor<T> result = Empty();
+            Tensor<T> result = Empty(Shape);
+
+            int[] indices = new int[ndim];
+            int[] srcIndices = new int[ndim];
 
             for (int i = 0; i < Size(); i++)
             {
-                int[] indices = GetApparentPosition(i);
-                int[] srcIndices = (int[])indices.Clone();
+                GetIndices(i, indices);
+                Array.Copy(indices, srcIndices, indices.Length);
 
                 srcIndices[dims.rowDim] -= rowOffset;
                 srcIndices[dims.colDim] -= colOffset;
@@ -1009,11 +1061,11 @@ namespace SL.Lib
                 if (srcIndices[dims.rowDim] >= 0 && srcIndices[dims.rowDim] < Shape[dims.rowDim] &&
                     srcIndices[dims.colDim] >= 0 && srcIndices[dims.colDim] < Shape[dims.colDim])
                 {
-                    result[indices] = this[srcIndices];
+                    result._data[i] = _data[GetFlatIndex(srcIndices)];
                 }
                 else
                 {
-                    result[indices] = padMode.GetPaddedValue(this, srcIndices);
+                    result._data[i] = padMode.GetPaddedValue(this, srcIndices);
                 }
             }
 

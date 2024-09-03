@@ -30,14 +30,14 @@ namespace SL.Lib
             if (pos == null || pos.Length != 2)
                 throw new ArgumentException("Position must be an array of two Indice objects.", nameof(pos));
 
-            if (tensor.Shape.Length != 2)
+            if (tensor.ndim != 2)
                 throw new ArgumentException("Tensor must be 2D.", nameof(tensor));
 
             int rows = tensor.Shape[0];
             int cols = tensor.Shape[1];
-            var real_pos = tensor.GetApparentPosition(pos);
-            int centerRow = real_pos[0];
-            int centerCol = real_pos[1];
+            var realpos = tensor.GetRealIndices(pos);
+            int centerRow = realpos[0][0];
+            int centerCol = realpos[1][0];
 
             return new ESEResult(
                 (centerRow, centerCol),
@@ -66,7 +66,7 @@ namespace SL.Lib
         /// <returns>A 3x3 tensor containing the extracted region.</returns>
         public Tensor<T> Extract<T>(Tensor<T> source, T padValue) where T : IComparable<T>
         {
-            if (source.Shape.Length != 2 || source.Shape[0] != _sourceRows || source.Shape[1] != _sourceCols)
+            if (source.ndim != 2 || source.Shape[0] != _sourceRows || source.Shape[1] != _sourceCols)
                 throw new ArgumentException("Source tensor must match the dimensions of the original tensor.", nameof(source));
 
             var extracted = source[_rowRange, _colRange];
@@ -119,7 +119,7 @@ namespace SL.Lib
 
         public TensorLabel(Tensor<bool> tensor, bool backgroundValue = false)
         {
-            if (tensor.Shape.Length != 2)
+            if (tensor.ndim != 2)
             {
                 throw new ArgumentException("Input tensor must be 2-dimensional");
             }
@@ -136,10 +136,10 @@ namespace SL.Lib
             {
                 for (int j = 0; j < cols; j++)
                 {
-                    if (tensor[i, j].item != backgroundValue)
+                    if (tensor[i, j] != backgroundValue)
                     {
                         var neighbors = GetNeighbors(i, j, rows, cols)
-                            .Select(p => _label[p.Item1, p.Item2].item)
+                            .Select(p => _label[p.Item1, p.Item2])
                             .Where(l => l != 0)
                             .ToList();
 
@@ -166,9 +166,9 @@ namespace SL.Lib
             {
                 for (int j = 0; j < cols; j++)
                 {
-                    if (_label[i, j].item != 0)
+                    if (_label[i, j] != 0)
                     {
-                        _label[i, j] = Find(equivalenceTable, _label[i, j].item);
+                        _label[i, j] = Find(equivalenceTable, _label[i, j]);
                     }
                 }
             }
@@ -286,7 +286,6 @@ namespace SL.Lib
             {
                 var selectList = selectMask.ArgWhere();
                 indice = SelectRandom(selectList);
-                Debug.Log($"SelectRandom: {field..ToDebugString()}");
                 return true;
             }
             indice = field.GetIndices(0);
@@ -317,8 +316,8 @@ namespace SL.Lib
                 newTensorLabel = new TensorLabel(predField == 0);
                 return true;
             }
-            Debug.Log(field);
-            Debug.Log(ESE);
+            //Debug.Log(field);
+            //Debug.Log(ESE);
             if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1))) 
             {
                 var predTensorLabel = new TensorLabel(predField == 0);
@@ -462,6 +461,7 @@ namespace SL.Lib
                         _rotMasks.Add(s2);
                     }
                     MazeArrayHelper._rotMasks = Tensor<float>.Stack(_rotMasks, 0);
+                    //Debug.Log($"RotMasks: {MazeArrayHelper._rotMasks}");
                     _rotMasksCreated = true;
                 }
                 return _rotMasks;
@@ -542,12 +542,15 @@ namespace SL.Lib
 
         public static bool IsPotentialSplitter(Tensor<int> extractedField)
         {
-            if (extractedField[1, 1].item == 1) return false;
+            if (extractedField[1, 1] == 1) return false;
             var fieldMask = (extractedField == 1) & SurroundMask;
             if (!fieldMask.Any()) return false;
-            Debug.Log(fieldMask);
+            //Debug.Log($"fieldMask={fieldMask}");
             var rotLabel = RotLabel[fieldMask];
-            return (fieldMask & (RotMasks[rotLabel].Sum(new[] { 0 }) > 0)).Any();
+            //Debug.Log($"rotLabel={rotLabel}");
+            var rotMasks = RotMasks[rotLabel];
+            //Debug.Log($"rotMasks={rotMasks}");
+            return (fieldMask & (rotMasks.Sum(new[] { 0 }) > 0)).Any();
         }
 
         public static Tensor<float> NeighborScore(Tensor<float> field)

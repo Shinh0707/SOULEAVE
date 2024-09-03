@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using System.Linq;
 
 namespace SL.Lib
@@ -131,5 +132,148 @@ namespace SL.Lib
             return new Tensor<T>(data, shape);
         }
 
+        // <summary>
+        /// Broadcasts two tensors to a compatible shape.
+        /// </summary>
+        /// <param name="A">The first tensor to broadcast.</param>
+        /// <param name="B">The second tensor to broadcast.</param>
+        /// <returns>A tuple containing the two broadcast tensors.</returns>
+        public static (Tensor<T>, Tensor<T>) Broadcast(Tensor<T> A, Tensor<T> B)
+        {
+            int[] broadcastShape = BroadcastShapes(A.Shape, B.Shape);
+            Tensor<T> broadcastA = BroadcastToShape(A, broadcastShape);
+            Tensor<T> broadcastB = BroadcastToShape(B, broadcastShape);
+            return (broadcastA, broadcastB);
+        }
+
+        /// <summary>
+        /// Broadcasts two tensors and applies a specified operation element-wise.
+        /// </summary>
+        /// <typeparam name="TResult">The type of the result tensor.</typeparam>
+        /// <param name="A">The first tensor to broadcast.</param>
+        /// <param name="B">The second tensor to broadcast.</param>
+        /// <param name="valueOperation">The operation to apply element-wise.</param>
+        /// <returns>A new tensor containing the result of the operation.</returns>
+        public static Tensor<TResult> Broadcast<TResult>(Tensor<T> A, Tensor<T> B, Func<T, T, TResult> valueOperation)
+            where TResult : IComparable<TResult>
+        {
+            int[] broadcastShape = BroadcastShapes(A.Shape, B.Shape);
+            Tensor<TResult> result = Tensor<TResult>.Empty(broadcastShape);
+            int[] indices = new int[broadcastShape.Length];
+            for (int i = 0; i < result.Size(); i++)
+            {
+                result.GetIndices(i,indices);
+                T valueA = A.GetBroadcastValue(indices, broadcastShape);
+                T valueB = B.GetBroadcastValue(indices, broadcastShape);
+                //Debug.Log($"Progress: {valueOperation.Method.Name}(A[{valueA}],B[{valueB}])");
+                result[indices] = valueOperation(valueA, valueB);
+            }
+
+            return result;
+        }
+
+        private static Tensor<T> BroadcastToShape(Tensor<T> tensor, int[] targetShape)
+        {
+            Tensor<T> result = Empty(targetShape);
+            int[] indices = new int[targetShape.Length];
+            for (int i = 0; i < result.Size(); i++)
+            {
+                result.GetIndices(i,indices);
+                result._data[result.GetFlatIndex(indices)] = tensor.GetBroadcastValue(indices, targetShape);
+            }
+
+            return result;
+        }
+        public static int[] BroadcastShapes(int[] shapeA, int[] shapeB)
+        {
+            if (shapeA == null || shapeB == null)
+            {
+                throw new ArgumentNullException(shapeA == null ? nameof(shapeA) : nameof(shapeB), "Shape arrays cannot be null.");
+            }
+
+            int rank = Math.Max(shapeA.Length, shapeB.Length);
+            int[] result = new int[rank];
+
+            for (int i = 1; i <= rank; i++)
+            {
+                int dimA = i <= shapeA.Length ? shapeA[^i] : 1;
+                int dimB = i <= shapeB.Length ? shapeB[^i] : 1;
+
+                if (dimA < 0 || dimB < 0)
+                {
+                    throw new ArgumentException($"Invalid dimension size. All dimensions must be non-negative. Found: dimA = {dimA}, dimB = {dimB} at position {rank - i}");
+                }
+
+                if (dimA == dimB)
+                {
+                    result[^i] = dimA;
+                }
+                else if (dimA == 1)
+                {
+                    result[^i] = dimB;
+                }
+                else if (dimB == 1)
+                {
+                    result[^i] = dimA;
+                }
+                else
+                {
+                    throw new ArgumentException(
+                        $"Shapes are not compatible for broadcasting at dimension {rank - i}. " +
+                        $"Shape A: {FormatPartialShape(shapeA, i)}, " +
+                        $"Shape B: {FormatPartialShape(shapeB, i)}, " +
+                        $"Conflict: {dimA} vs {dimB}");
+                }
+            }
+
+            return result;
+        }
+
+        private static string FormatPartialShape(int[] shape, int lastN)
+        {
+            var relevantPart = shape.Length >= lastN ? shape.Skip(shape.Length - lastN) : shape;
+            return $"[{string.Join(", ", relevantPart)}]" + (shape.Length < lastN ? $" + {lastN - shape.Length} leading 1's" : "");
+        }
+        /// <summary>
+        /// Gets the broadcast value for the given indices and target shape.
+        /// </summary>
+        /// <param name="indices">The indices in the target shape.</param>
+        /// <param name="targetShape">The shape to broadcast to.</param>
+        /// <returns>The value at the broadcast position.</returns>
+        public T GetBroadcastValue(int[] indices, int[] targetShape)
+        {
+            if (indices.Length != targetShape.Length)
+            {
+                throw new ArgumentException("Number of indices must match the number of dimensions in the target shape.");
+            }
+
+            int[] adjustedIndices = new int[Shape.Length];
+            int targetDim = 0;
+
+            for (int thisDim = 0; thisDim < Shape.Length; thisDim++)
+            {
+                if (targetDim >= targetShape.Length)
+                {
+                    throw new ArgumentException("Target shape is not compatible for broadcasting.");
+                }
+
+                if (Shape[thisDim] == targetShape[targetDim])
+                {
+                    adjustedIndices[thisDim] = indices[targetDim] % Shape[thisDim];
+                }
+                else if (Shape[thisDim] == 1)
+                {
+                    adjustedIndices[thisDim] = 0;
+                }
+                else
+                {
+                    throw new ArgumentException($"Incompatible shapes for broadcasting: {string.Join(",", Shape)} and {string.Join(",", targetShape)}");
+                }
+
+                targetDim++;
+            }
+
+            return _data[GetFlatIndex(adjustedIndices)];
+        }
     }
 }

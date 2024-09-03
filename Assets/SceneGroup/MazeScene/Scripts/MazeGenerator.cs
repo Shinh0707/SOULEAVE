@@ -5,16 +5,19 @@ using SL.Lib;
 
 public class MazeGenerator : MonoBehaviour
 {
+    [SerializeField, Range(5, 30)] private int mazeWidth;
+    [SerializeField, Range(5, 30)] private int mazeHeight;
+    [SerializeField, Range(5, 200)] private int minRouteArea;
+    [SerializeField] private Vector2Int playerStartPosition;
     [SerializeField] private Tilemap tilemap;
     [SerializeField] private List<TileBase> tileList; // 0: 通路, 1: 壁
-    [SerializeField] private Vector2Int playerStartPosition;
 
     private Tensor<int> mazeData;
 
     private void Start()
     {
         // テスト用のTensorデータ (後で外部から受け取るように変更予定)
-        (mazeData, _) = MazeCreater.CreatePlainMaze(10, 10, 5);
+        (mazeData, _) = MazeCreater.CreatePlainMaze(mazeWidth, mazeHeight, minRouteArea);
 
         GenerateMaze(mazeData, playerStartPosition);
     }
@@ -38,7 +41,7 @@ public class MazeGenerator : MonoBehaviour
         {
             for (int x = 0; x < cols; x++)
             {
-                int tileIndex = maze[y, x].item;
+                int tileIndex = maze[y, x];
                 if (tileIndex >= 0 && tileIndex < tileList.Count)
                 {
                     // y座標を反転させてタイルを配置
