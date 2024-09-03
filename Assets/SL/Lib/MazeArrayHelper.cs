@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting.Antlr3.Runtime.Misc;
 using UnityEngine;
 using static SL.Lib.SLRandom;
 
@@ -637,6 +638,37 @@ namespace SL.Lib
 
             tensorLabel.ApplyEachLabel<float>(Norm);
             return (maxPeaks, minPeaks, normalizedPeak);
+        }
+
+        public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, float _alpha,int maxSteps = 1000)
+        {
+            float alpha = Mathf.Min(_alpha, 1.0f);
+            var floatMask = mask.Cast<float>();
+            var floatPadMode = new ConstantPadMode<float>(0);
+            (int i, int j)[] rollOffsets = (new[] { (0, 1), (0, -1), (1, 0), (-1, 0) });
+            Tensor<float> countTable = Tensor<float>.Stack(rollOffsets.Select(ij => floatMask.Slide(ij.i,ij.j,floatPadMode)),0).Sum(0) * floatMask;
+            var updatedChecker = ((stables != 0) & (countTable > 0)).Cast<float>();
+            var mulCountTable = 1 / (countTable + 1);
+            var fluidCurrent = new Tensor<float>(sources);
+            var thresFill = sources.Mean() * 0.2f + sources.Min() * 0.8f;
+            var filledSteps = Tensor<int>.Full(-1, sources);
+            var filled = !mask;
+            Tensor<float> currentFluid;
+            Tensor<float> neighborSum;
+            Tensor<bool> newFilled;
+            for(int step = 0; step < maxSteps; step++)
+            {
+                newFilled = (filledSteps == -1) & (fluidCurrent > thresFill);
+                filledSteps[newFilled] = step;
+                filled |= newFilled;
+                if (filled.All()) break;
+                currentFluid = fluidCurrent * stables;
+                neighborSum = Tensor<float>.Stack(rollOffsets.Select(ij => (currentFluid * floatMask).Slide(ij.i, ij.j, floatPadMode)), 0).Sum(0);
+                fluidCurrent += alpha * (neighborSum - currentFluid * countTable) * updatedChecker * mulCountTable;
+                fluidCurrent = fluidCurrent.Clip(fmin, fmax);
+            }
+            filledSteps[(filledSteps == -1) & mask] = filledSteps.Max() + 1;
+            return filledSteps.MaxNormalize();
         }
     }
 

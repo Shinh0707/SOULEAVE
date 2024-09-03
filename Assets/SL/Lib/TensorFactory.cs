@@ -131,6 +131,13 @@ namespace SL.Lib
 
             return new Tensor<T>(data, shape);
         }
+        /// <summary>
+        /// Creates a Tensor filled with a specific value.
+        /// </summary>
+        /// <param name="value">The value to fill the Tensor with.</param>
+        /// <param name="tensor">The shape of the Tensor.</param>
+        /// <returns>A new Tensor filled with the specified value.</returns>
+        public static Tensor<T> Full<TSource>(T value, Tensor<TSource> tensor) where TSource : IComparable<TSource> => Full(value, tensor.Shape);
 
         // <summary>
         /// Broadcasts two tensors to a compatible shape.

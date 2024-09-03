@@ -713,7 +713,13 @@ namespace SL.Lib
         {
             return ReduceOperation(dims, keepDims, NumericOperations.Add);
         }
-
+        /// <summary>
+        /// Computes the sum along the specified dimension.
+        /// </summary>
+        /// <param name="dim">The dimension along which to compute the sum.</param>
+        /// <param name="keepDims">Whether to keep the dimensions with size 1.</param>
+        /// <returns>A new tensor containing the sum values.</returns>
+        public Tensor<T> Sum(int dim, bool keepDims = false) => Sum(new[] { dim }, keepDims);
         /// <summary>
         /// Computes the sum.
         /// </summary>
