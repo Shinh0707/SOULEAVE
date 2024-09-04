@@ -29,7 +29,7 @@ public class GameUIManager : MonoBehaviour
         hintArrow.SetActive(false);
     }
 
-    private void Update()
+    private void FixedUpdate()
     {
         UpdateHintTimer();
         UpdateElapsedTime();
@@ -42,6 +42,10 @@ public class GameUIManager : MonoBehaviour
 
         sightSlider.value = currentSight / maxSight;
         sightText.text = $"Sight: {currentSight:F2} / {maxSight:F2}";
+    }
+    public void UpdatePlayerStats(float currentMp,float currentSight)
+    {
+        UpdatePlayerStats(currentMp, MazeGameStats.Instance.MaxMP,currentSight, MazeGameStats.Instance.MaxSight);
     }
 
     public void UpdateMinimap(Texture2D minimapTexture)
@@ -86,7 +90,7 @@ public class GameUIManager : MonoBehaviour
     {
         if (hintTimer > 0)
         {
-            hintTimer -= Time.deltaTime;
+            hintTimer -= Time.fixedDeltaTime;
             if (hintTimer <= 0)
             {
                 hintArrow.SetActive(false);

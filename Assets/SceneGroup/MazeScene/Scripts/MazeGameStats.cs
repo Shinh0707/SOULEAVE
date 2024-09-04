@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 public class MazeGameStats : SingletonMonoBehaviour<MazeGameStats>
 {
-    private bool isInitialized = false;
+    public bool IsInitialized { get; private set; }
     private Dictionary<string, float> stats = new Dictionary<string, float>();
 
     public delegate void OnInitializationComplete();
@@ -37,13 +37,13 @@ public class MazeGameStats : SingletonMonoBehaviour<MazeGameStats>
             stats[name] = value;
         }
 
-        isInitialized = true;
+        IsInitialized = true;
         OnInitialized?.Invoke();
     }
 
     public float GetStat(string statName)
     {
-        if (!isInitialized)
+        if (!IsInitialized)
         {
             Debug.LogWarning("Attempting to access stats before initialization is complete");
             return 0f;

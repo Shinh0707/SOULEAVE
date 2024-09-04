@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using Unity.VisualScripting;
 public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
 {
     public enum GameState
@@ -14,6 +15,8 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     [SerializeField] private MazeManager mazeManager;
     [SerializeField] private GameObject playerPrefab;
     private GameObject player;
+    [SerializeField] private GameObject goalPrefab;
+    private GameObject goal;
     [SerializeField] private EnemyManager enemyManager;
     [SerializeField] private GameUIManager uiManager;
     public MazeManager MazeManager => mazeManager;
@@ -26,7 +29,13 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
 
     private void Start()
     {
-        MazeGameStats.OnInitialized += OnMazeGameStatsInitialized;
+        if (!MazeGameStats.Instance.IsInitialized) {
+            MazeGameStats.OnInitialized += OnMazeGameStatsInitialized;
+        }
+        else
+        {
+            OnMazeGameStatsInitialized();
+        }
     }
 
     private void OnMazeGameStatsInitialized()
@@ -41,10 +50,15 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         _gameStartTime = Time.time;
         player = Instantiate(playerPrefab);
         playerController = player.GetComponent<PlayerController>();
-        playerController.Initialize(mazeManager.StartPosition);
-        enemyManager.InitializeEnemies(mazeManager.GetPositions(mazeManager.firstEnemies));
+        var mazeSize = MazeManager.mazeSize;
+        playerController.Initialize(mazeManager.StartPosition, mazeSize);
+        goal = Instantiate(goalPrefab, new Vector3(mazeManager.GoalPosition.x, mazeManager.GoalPosition.y, 0f), Quaternion.identity);
+        enemyManager.InitializeEnemies(mazeManager.GetPositions(mazeManager.firstEnemies), mazeSize);
         uiManager.Initialize();
         CurrentState = GameState.Playing;
+        var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
+        cameraFollow.Initialize(player.transform);
+        cameraFollow.follow = true;
 
         // TODO: プレイヤーの初期位置をカメラに追従させる処理を追加
         // TODO: ゲーム開始時のサウンドを再生する処理を追加
@@ -59,7 +73,6 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
                 PauseGame();
             }
             CheckGameOverConditions();
-            CheckVictoryConditions();
 
             // TODO: ゲームの経過時間を更新し、UIに反映する処理を追加
             // TODO: プレイヤーの位置に基づいてミニマップを更新する処理を追加
@@ -103,16 +116,13 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         }
     }
 
-    private void CheckVictoryConditions()
+    public void Victory()
     {
-        if (mazeManager.IsInGoal(playerController.Position))
-        {
-            CurrentState = GameState.Victory;
-            uiManager.ShowVictoryScreen();
+        CurrentState = GameState.Victory;
+        uiManager.ShowVictoryScreen();
 
-            // TODO: 勝利時のサウンドを再生する処理を追加
-            // TODO: プレイヤーの最終スコアを計算し、表示する処理を追加
-        }
+        // TODO: 勝利時のサウンドを再生する処理を追加
+        // TODO: プレイヤーの最終スコアを計算し、表示する処理を追加
     }
 
     public void RestartGame()
