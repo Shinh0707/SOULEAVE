@@ -6,14 +6,50 @@ using Unity.VisualScripting;
 public enum Direction { Up, Down, Left, Right }
 public enum Condition { Alive, Dead, Invincible, Stopped, Disabled }
 
-public class Character : MonoBehaviour
+public class Character : DynamicObject
 {
     [SerializeField] protected Collider2D characterCollider;
     [SerializeField] protected LayerMask collisionLayer;
     public Transform character;
     public new Transform transform => character;
     private CollisionDetector collisionDetector;
+
+    private Dictionary<string, ContactFilter2D> contactFilters = new();
     protected Rigidbody2D rb;
+
+    private bool checkMode = false;
+
+    public bool CheckCollision(string layerName)
+    {
+        ContactFilter2D filter;
+        if (contactFilters.ContainsKey(layerName))
+        {
+            filter = contactFilters[layerName];
+        }
+        else
+        {
+            filter = new ContactFilter2D();
+            filter.layerMask = LayerMask.GetMask(layerName);
+            filter.useLayerMask = true;
+            contactFilters[layerName] = filter;
+        }
+        Collider2D[] results = new Collider2D[1];
+        return rb.OverlapCollider(filter, results) > 0;
+    }
+
+    public bool CheckCollision(string layerName, Vector2 targetPosition)
+    {
+        var lastPosition = rb.position;
+        checkMode = true;
+        rb.position = targetPosition;
+        bool result = CheckCollision(layerName);
+        rb.position = lastPosition;
+        checkMode = false;
+        return result;
+    }
+    public bool CollisionWall(Vector2 targetPosition) => CheckCollision("Wall", targetPosition);
+    public bool CollisionOtherCharacter(Vector2 targetPosition) => CheckCollision("Character", targetPosition);
+
     protected RaycastHit2D[] hitColliders = new RaycastHit2D[1];
     protected Vector2 movement;
 
@@ -64,10 +100,10 @@ public class Character : MonoBehaviour
 
         characterCollider.contactCaptureLayers = collisionLayer;
         characterCollider.AddIncludeLayer("Character"); 
-        collisionDetector.OnCollisionDetected += OnCollision;
+        collisionDetector.OnCollisionDetected += OnBaseCollision;
     }
 
-    protected virtual void FixedUpdate()
+    public virtual void ApplyQueuedMove()
     {
         if (MazeGameScene.Instance.CurrentState == MazeGameScene.GameState.Playing)
         {
@@ -77,6 +113,10 @@ public class Character : MonoBehaviour
                 Move();
             }
         }
+    }
+    public virtual void HandleInput()
+    {
+        
     }
 
     public void SetColliderActive(bool isActive) => characterCollider.enabled = isActive;
@@ -116,6 +156,15 @@ public class Character : MonoBehaviour
         movementQueue.Clear();
     }
 
+    public virtual void Warp(Vector2 targetPosition)
+    {
+        characterCollider.enabled =false;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
+        rb.position = targetPosition;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        characterCollider.enabled = true;
+    }
+
     protected virtual void Move()
     {
         OnBeforeMove();
@@ -141,7 +190,13 @@ public class Character : MonoBehaviour
             return vector.y > 0 ? Direction.Up : Direction.Down;
         }
     }
-
+    private void OnBaseCollision(Collision2D collision)
+    {
+        if (!checkMode)
+        {
+            OnCollision(collision);
+        }
+    }
     protected virtual void OnCollision(Collision2D collision)
     {
 

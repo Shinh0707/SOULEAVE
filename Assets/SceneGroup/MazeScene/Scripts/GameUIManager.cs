@@ -1,6 +1,8 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.Collections.Generic;
+using System.Linq;
 
 public class GameUIManager : MonoBehaviour
 {
@@ -15,6 +17,9 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI sightText;
     [SerializeField] private RawImage minimapImage;
     [SerializeField] private GameObject hintArrow;
+    [SerializeField] private RectTransform SkillBankBox;
+    [SerializeField] private GameObject SkillBankContent;
+    private Dictionary<KeyCode,SkillBoxUI> skillBoxes = new();
     [SerializeField] private TextMeshProUGUI elapsedTimeText;
     [SerializeField] private GameObject[] itemSlots;
 
@@ -27,12 +32,27 @@ public class GameUIManager : MonoBehaviour
         gameOverScreen.SetActive(false);
         victoryScreen.SetActive(false);
         hintArrow.SetActive(false);
+        UpdateSkillBank();
     }
 
-    private void FixedUpdate()
+    public void UpdateSkillBank()
     {
-        UpdateHintTimer();
-        UpdateElapsedTime();
+        var skillBank = MazeGameScene.Instance.Player.SkillBank;
+        foreach(var skillKey in skillBank.Keys)
+        {
+            if (!skillBoxes.ContainsKey(skillKey))
+            {
+                var newSkillBox = Instantiate(SkillBankContent, SkillBankBox);
+                skillBoxes[skillKey] = newSkillBox.GetComponent<SkillBoxUI>();
+            }
+            skillBoxes[skillKey].Initilize(skillBank[skillKey], skillKey);
+        }
+        var dontNeedKeys = skillBoxes.Keys.Where(sk => !skillBank.ContainsKey(sk));
+        foreach (var skillKey in dontNeedKeys)
+        {
+            Destroy(skillBoxes[skillKey]);
+            skillBoxes.Remove(skillKey);   
+        }
     }
 
     public void UpdatePlayerStats(float currentMp, float maxMp, float currentSight, float maxSight)
@@ -45,7 +65,7 @@ public class GameUIManager : MonoBehaviour
     }
     public void UpdatePlayerStats(float currentMp,float currentSight)
     {
-        UpdatePlayerStats(currentMp, MazeGameStats.Instance.MaxMP,currentSight, MazeGameStats.Instance.MaxSight);
+        UpdatePlayerStats(currentMp, MazeGameStats.Instance.MaxMP,currentSight, MazeGameStats.Instance.MaxIntensity);
     }
 
     public void UpdateMinimap(Texture2D minimapTexture)
@@ -85,22 +105,8 @@ public class GameUIManager : MonoBehaviour
     {
         // Implement teleport mode UI update
     }
-
-    private void UpdateHintTimer()
+    public void UpdateElapsedTime(float elapsedTime)
     {
-        if (hintTimer > 0)
-        {
-            hintTimer -= Time.fixedDeltaTime;
-            if (hintTimer <= 0)
-            {
-                hintArrow.SetActive(false);
-            }
-        }
-    }
-
-    private void UpdateElapsedTime()
-    {
-        float elapsedTime = Time.time - MazeGameScene.Instance.GameStartTime;
         elapsedTimeText.text = $"Time: {elapsedTime:F1}s";
     }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace SL.Lib
@@ -101,6 +102,18 @@ namespace SL.Lib
         public static void RemoveExcludeLayer(this Collider2D collider, string layerToCheck)
         {
             collider.excludeLayers = collider.excludeLayers.RemoveLayer(layerToCheck);
+        }
+    }
+
+    public static class ComponentExtension
+    {
+        public static T GetOrAddComponent<T>(this Component obj) where T : Component
+        {
+            if(obj.TryGetComponent(out T component))
+            {
+                return component;
+            }
+            return obj.AddComponent<T>();
         }
     }
     public class SLRandom

@@ -6,12 +6,24 @@ using UnityEngine;
 public class PlayerController : Character
 {
     [SerializeField] private TileBased2DLight tileBased2DLight;
-    public float MP { get; private set; }
+
+    private float _mp;
+    public float MP
+    {
+        get { return _mp; }
+        set {
+            if (_mp != value)
+            {
+                _mp = value;
+                UpdateMP();
+            }
+        }
+    }
 
     private float _intensity;
     public float Intensity {
         get { return _intensity; }
-        private set
+        set
         {
             if (_intensity != value)
             {
@@ -21,21 +33,20 @@ public class PlayerController : Character
         }
     }
 
+    public Dictionary<KeyCode, SkillManager> SkillBank { get; private set; }
+
     public bool IsDead => Intensity <= 0;
 
-    private float _lastMPRestoreTime;
-    private float _lastSightRestoreTime;
     private bool _isTransparent;
     private Coroutine _transparencyCoroutine;
 
-    private void Update()
+    public override void UpdateState()
     {
-        HandleInput();
         RestoreMP();
         RestoreSight();
     }
 
-    private void HandleInput()
+    public override void HandleInput()
     {
         if (CurrentCondition != Condition.Alive && CurrentCondition != Condition.Invincible)
             return;
@@ -46,14 +57,19 @@ public class PlayerController : Character
         if (Input.GetKey(KeyCode.S)) MoveBackward();
         if (Input.GetKey(KeyCode.D)) MoveRight();
 
-        // Magic
-        if (Input.GetKeyDown(KeyCode.E)) UseHint();
-        if (Input.GetKeyDown(KeyCode.R)) UseTeleport();
-        if (Input.GetKey(KeyCode.T)) UseIntensify();
+        // Skill
+        foreach (var key in SkillBank.Keys)
+        {
+            if (Input.GetKey(key))
+            {
+                Debug.Log($"Key Pressed {key}");
+                StartCoroutine(SkillBank[key].Use(this,key));
+            }
+        }
 
         // Items
-        if (Input.GetKeyDown(KeyCode.Alpha1)) UseTransparency();
-        if (Input.GetKeyDown(KeyCode.Alpha2)) UseItem(1);
+        if (Input.GetKeyDown(KeyCode.Alpha1)) ;
+        if (Input.GetKeyDown(KeyCode.Alpha2)) ;
     }
 
     private void RestoreMP()
@@ -63,70 +79,16 @@ public class PlayerController : Character
 
     private void RestoreSight()
     {
-        Intensity = Mathf.Min(Intensity + MazeGameStats.Instance.RestoreSightPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxSight);
+        Intensity = Mathf.Min(Intensity + MazeGameStats.Instance.RestoreIntensityPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxIntensity);
     }
-
-    protected virtual void UseHint()
-    {
-        if (CanUseMagic(MazeGameStats.Instance.HintMPCost))
-        {
-            MP -= MazeGameStats.Instance.HintMPCost;
-            // TODO: Implement hint logic
-            Debug.Log("Using Hint");
-            StartCoroutine(HintCoroutine());
-        }
-    }
-
-    protected virtual void UseTeleport()
-    {
-        if (CanUseMagic(MazeGameStats.Instance.TeleportMPCost) && Intensity >= MazeGameStats.Instance.MinSightForTeleport)
-        {
-            MP -= MazeGameStats.Instance.TeleportMPCost;
-            // TODO: Implement teleport logic
-            Debug.Log("Using Teleport");
-        }
-    }
-
-    protected virtual void UseIntensify()
-    {
-        if (CanUseMagic(MazeGameStats.Instance.MPForBrightnessCostPerSecond * Time.deltaTime))
-        {
-            MP -= MazeGameStats.Instance.MPForBrightnessCostPerSecond * Time.deltaTime;
-            Intensity += MazeGameStats.Instance.MPForBrightnessValuePerSecond * Time.deltaTime;
-            Intensity = Mathf.Min(Intensity, MazeGameStats.Instance.MaxSight);
-            UpdateSightRange();
-        }
-    }
-
-    protected virtual void UseTransparency()
-    {
-        if (!_isTransparent)
-        {
-            _isTransparent = true;
-            if (_transparencyCoroutine != null)
-            {
-                StopCoroutine(_transparencyCoroutine);
-            }
-            _transparencyCoroutine = StartCoroutine(TransparencyCoroutine());
-        }
-    }
-
-    protected virtual void UseItem(int itemIndex)
-    {
-        // TODO: Implement other item usage
-        Debug.Log($"Using item {itemIndex}");
-    }
-
-    protected virtual bool CanUseMagic(float cost) => MP >= cost;
 
     public override void Initialize(Vector2 position, (int rows, int cols) mazeSize)
     {
         base.Initialize(position, mazeSize);
         MP = MazeGameStats.Instance.MaxMP;
-        Intensity = MazeGameStats.Instance.MaxSight;
+        Intensity = MazeGameStats.Instance.MaxIntensity;
+        SkillBank ??= PlayerStatusManager.Instance.GetSkills();
         UpdateSightRange();
-        _lastMPRestoreTime = Time.time;
-        _lastSightRestoreTime = Time.time;
     }
 
     protected void UpdateSightRange()
@@ -135,26 +97,15 @@ public class PlayerController : Character
         MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
         tileBased2DLight.LightRange = SightRange;
     }
+    protected void UpdateMP()
+    {
+        MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
+    }
 
     protected override void OnAfterMove()
     {
         base.OnAfterMove();
         UpdateSightRange();
-    }
-
-    private IEnumerator HintCoroutine()
-    {
-        // TODO: Implement hint visual effect
-        yield return new WaitForSeconds(MazeGameStats.Instance.HintDuration);
-        // TODO: Remove hint visual effect
-    }
-
-    private IEnumerator TransparencyCoroutine()
-    {
-        // TODO: Implement transparency visual effect
-        yield return new WaitForSeconds(MazeGameStats.Instance.TransparentDuration);
-        _isTransparent = false;
-        // TODO: Remove transparency visual effect
     }
 
     public void TakeDamage(float damage)
@@ -171,11 +122,11 @@ public class PlayerController : Character
         }
     }
 
-    private IEnumerator InvincibilityCoroutine()
+    public IEnumerator InvincibilityCoroutine()
     {
         CurrentCondition = Condition.Invincible;
         // TODO: Implement invincibility visual effect
-        yield return new WaitForSeconds(1f); // Adjust invincibility duration as needed
+        yield return new WaitForGameSeconds(1f); // Adjust invincibility duration as needed
         CurrentCondition = Condition.Alive;
         // TODO: Remove invincibility visual effect
     }

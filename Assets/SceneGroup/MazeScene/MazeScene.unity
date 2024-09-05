@@ -468,6 +468,8 @@ MonoBehaviour:
   sightText: {fileID: 1021454467}
   minimapImage: {fileID: 0}
   hintArrow: {fileID: 234023333}
+  SkillBankBox: {fileID: 1685951924}
+  SkillBankContent: {fileID: 6587316016632887557, guid: 733cb7061456cdf4a9f889ce16d55235, type: 3}
   elapsedTimeText: {fileID: 1248458525}
   itemSlots: []
 --- !u!224 &363399477
@@ -667,7 +669,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &804290009
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1033,7 +1035,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &927121880
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1108,7 +1110,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &970850777
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1484,6 +1486,12 @@ MonoBehaviour:
   goalPrefab: {fileID: 2470374563253171948, guid: 773d7169440046c4db6dc63a1bb7e7d9, type: 3}
   enemyManager: {fileID: 1282086665}
   uiManager: {fileID: 363399476}
+  debugModeData:
+    skills:
+    - key: 101
+      skill:
+        data: {fileID: 11400000, guid: e42459b41bbc37c4aa4ef7faea1352e6, type: 2}
+        currentLevel: 0
 --- !u!4 &1161655192
 Transform:
   m_ObjectHideFlags: 0
@@ -2280,6 +2288,7 @@ RectTransform:
   - {fileID: 1248458524}
   - {fileID: 1204536835}
   - {fileID: 1627250146}
+  - {fileID: 1685951924}
   m_Father: {fileID: 363399477}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -2559,6 +2568,75 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &1685951923
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1685951924}
+  - component: {fileID: 1685951926}
+  - component: {fileID: 1685951925}
+  m_Layer: 5
+  m_Name: SkillBank
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1685951924
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1685951923}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1367010791}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1685951925
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1685951923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a8695521f0d02e499659fee002a26c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Padding:
+    m_Left: 0
+    m_Right: 0
+    m_Top: 0
+    m_Bottom: 0
+  m_ChildAlignment: 0
+  m_StartCorner: 0
+  m_StartAxis: 0
+  m_CellSize: {x: 100, y: 100}
+  m_Spacing: {x: 0, y: 0}
+  m_Constraint: 0
+  m_ConstraintCount: 2
+--- !u!222 &1685951926
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1685951923}
+  m_CullTransparentMesh: 1
 --- !u!1 &1704895101
 GameObject:
   m_ObjectHideFlags: 0

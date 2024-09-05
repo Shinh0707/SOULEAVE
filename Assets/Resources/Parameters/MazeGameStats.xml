@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mazegamestats>
     <stat name="MaxMP" value="20"/>
-    <stat name="MaxSight" value="2"/>
+    <stat name="MaxIntensity" value="2"/>
     <stat name="RestoreMPPerSecond" value="2"/>
-    <stat name="RestoreSightPerSecond" value="0.4"/>
+    <stat name="RestoreIntensityPerSecond" value="0.4"/>
     <stat name="HintDuration" value="3"/>
     <stat name="HintMPCost" value="10"/>
     <stat name="TeleportMPCost" value="5"/>
-    <stat name="TeleportSightCostPerDistance" value="0.5"/>
-    <stat name="MinSightForTeleport" value="1"/>
+    <stat name="TeleportIntensityCostPerDistance" value="0.5"/>
+    <stat name="MinIntensityForTeleport" value="1"/>
     <stat name="MPForBrightnessValuePerSecond" value="20"/>
     <stat name="MPForBrightnessCostPerSecond" value="5"/>
     <stat name="MPForBrightnessDecayPerSecond" value="80"/>

@@ -61,14 +61,14 @@ public class MazeGameStats : SingletonMonoBehaviour<MazeGameStats>
     }
 
     public float MaxMP => GetStat("MaxMP");
-    public float MaxSight => GetStat("MaxSight");
+    public float MaxIntensity => GetStat("MaxIntensity");
     public float RestoreMPPerSecond => GetStat("RestoreMPPerSecond");
-    public float RestoreSightPerSecond => GetStat("RestoreSightPerSecond");
+    public float RestoreIntensityPerSecond => GetStat("RestoreIntensityPerSecond");
     public float HintDuration => GetStat("HintDuration");
     public float HintMPCost => GetStat("HintMPCost");
     public float TeleportMPCost => GetStat("TeleportMPCost");
-    public float TeleportSightCostPerDistance => GetStat("TeleportSightCostPerDistance");
-    public float MinSightForTeleport => GetStat("MinSightForTeleport");
+    public float TeleportIntensityCostPerDistance => GetStat("TeleportIntensityCostPerDistance");
+    public float MinIntensityForTeleport => GetStat("MinIntensityForTeleport");
     public float MPForBrightnessValuePerSecond => GetStat("MPForBrightnessValuePerSecond");
     public float MPForBrightnessCostPerSecond => GetStat("MPForBrightnessCostPerSecond");
     public float MPForBrightnessDecayPerSecond => GetStat("MPForBrightnessDecayPerSecond");

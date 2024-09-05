@@ -11,25 +11,27 @@ public class EnemyController : Character
 
     private float lastThinkTime;
 
-    protected override void FixedUpdate()
+    public override void UpdateState()
     {
-        base.FixedUpdate();
+        base.UpdateState();
+    }
 
-        if (Time.time - lastThinkTime >= ThinkingInterval)
+    public override void HandleInput()
+    {
+        if (MazeGameScene.Instance.GameTime - lastThinkTime >= ThinkingInterval)
         {
+            lastThinkTime = MazeGameScene.Instance.GameTime;
             Think();
-            lastThinkTime = Time.time;
         }
     }
 
-    protected virtual void Think()
+    protected void Think()
     {
         // Implement enemy AI logic here
         for (int i = 0; i < 4; i++)
         {
             MoveEnemy((MoveType)(SLRandom.Random.Next(3)));
         }
-
     }
 
     public enum MoveType

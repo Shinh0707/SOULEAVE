@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections;
-using Unity.VisualScripting;
+using System;
+using System.Collections.Generic;
+using SL.Lib;
 public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
 {
     public enum GameState
@@ -11,7 +13,17 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         GameOver,
         Victory
     }
+
+    [Flags]
+    public enum GameFlag
+    {
+        None = 0,
+        FreezeTime = 1,
+        FreezeState = 2,
+        FreezeInput = 4
+    }
     public GameState CurrentState { get; private set; }
+    public GameFlag CurrentFlag { get; private set; }
     [SerializeField] private MazeManager mazeManager;
     [SerializeField] private GameObject playerPrefab;
     private GameObject player;
@@ -19,12 +31,14 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     private GameObject goal;
     [SerializeField] private EnemyManager enemyManager;
     [SerializeField] private GameUIManager uiManager;
+    [SerializeField] private DebugModeData debugModeData;
     public MazeManager MazeManager => mazeManager;
     private PlayerController playerController;
     public PlayerController Player => playerController;
     public EnemyManager EnemyManager => enemyManager;
     public GameUIManager UIManager => uiManager;
     private float _gameStartTime;
+    public float GameTime { get; private set; }
     public float GameStartTime => _gameStartTime;
 
     private void Start()
@@ -48,6 +62,9 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         CurrentState = GameState.Setup;
         yield return mazeManager.GenerateMazeAsync();
         _gameStartTime = Time.time;
+#if true
+        yield return SetupDebugMode();
+#endif
         player = Instantiate(playerPrefab);
         playerController = player.GetComponent<PlayerController>();
         var mazeSize = MazeManager.mazeSize;
@@ -59,23 +76,70 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
         cameraFollow.Initialize(playerController.character);
         cameraFollow.follow = true;
+        GameTime = 0f;
 
-        // TODO: プレイヤーの初期位置をカメラに追従させる処理を追加
         // TODO: ゲーム開始時のサウンドを再生する処理を追加
     }
 
-    private void Update()
+    private IEnumerator SetupDebugMode()
+    {
+        foreach (var skill in debugModeData.skills)
+        {
+            PlayerStatusManager.Instance.AssignSkill(skill.key, skill.skill);
+        }
+        yield break;
+    }
+
+    private void FixedUpdate()
     {
         if (CurrentState == GameState.Playing)
         {
-            if (Input.GetKeyDown(KeyCode.Escape))
+            if (!CurrentFlag.HasFlag(GameFlag.FreezeTime))
             {
-                PauseGame();
+                GameTime += Time.fixedDeltaTime;
+                UIManager.UpdateElapsedTime(GameTime);
+            }
+            if (!CurrentFlag.HasFlag(GameFlag.FreezeState))
+            {
+                Player.ApplyQueuedMove();
+                EnemyManager.ApplyQueuedMove();
+                Player.UpdateState();
+                EnemyManager.UpdateState();
+
+            }
+            if (!CurrentFlag.HasFlag(GameFlag.FreezeInput))
+            {
+                Player.HandleInput();
+                EnemyManager.HandleInput();
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    PauseGame();
+                }
             }
             CheckGameOverConditions();
 
             // TODO: ゲームの経過時間を更新し、UIに反映する処理を追加
             // TODO: プレイヤーの位置に基づいてミニマップを更新する処理を追加
+        }
+    }
+
+    public void SetFreezeInput(bool freeze)
+    {
+        if (freeze)
+        {
+            if (!CurrentFlag.HasFlag(GameFlag.FreezeInput))
+            {
+                CurrentFlag |= GameFlag.FreezeInput;
+                //OnInputFreeze();
+            }
+        }
+        else
+        {
+            if (CurrentFlag.HasFlag(GameFlag.FreezeInput))
+            {
+                CurrentFlag &= ~GameFlag.FreezeInput;
+                //OnInputUnfreeze();
+            }
         }
     }
 
@@ -148,4 +212,69 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     // TODO: ゲームの難易度を変更する機能を追加
     // TODO: プレイヤーの進捗を保存する機能を追加
     // TODO: ゲーム内イベント（例：特殊アイテムの出現）を管理する機能を追加
+    public IEnumerator WaitForNextPlayingFrame()
+    {
+        yield return new WaitForNextPlayingFrame();
+    }
+}
+
+[Serializable]
+public struct KeyCodeSkillSet
+{
+    public KeyCode key;
+    public Skill skill;
+}
+
+[Serializable]
+public class DebugModeData
+{
+    public List<KeyCodeSkillSet> skills;
+
+}
+
+
+public class WaitForGameSeconds : CustomYieldInstruction
+{
+    private float waitTime;
+    private float startTime;
+
+    public WaitForGameSeconds(float time)
+    {
+        waitTime = time;
+        startTime = MazeGameScene.Instance.GameTime;
+    }
+
+    public override bool keepWaiting
+    {
+        get
+        {
+            if (MazeGameScene.Instance.CurrentState == MazeGameScene.GameState.Paused)
+            {
+                startTime = MazeGameScene.Instance.GameTime;
+                return true;
+            }
+            return MazeGameScene.Instance.GameTime - startTime < waitTime;
+        }
+    }
+}
+public class WaitForNextPlayingFrame : CustomYieldInstruction
+{
+    private bool wasPlayingLastFrame = false;
+
+    public override bool keepWaiting
+    {
+        get
+        {
+            bool isPlayingNow = MazeGameScene.Instance.CurrentState == MazeGameScene.GameState.Playing;
+
+            if (!wasPlayingLastFrame && isPlayingNow)
+            {
+                wasPlayingLastFrame = true;
+                return true;
+            }
+
+            wasPlayingLastFrame = isPlayingNow;
+            return !isPlayingNow;
+        }
+    }
 }

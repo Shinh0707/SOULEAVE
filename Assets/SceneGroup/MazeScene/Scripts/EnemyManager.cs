@@ -3,13 +3,37 @@ using System.Collections.Generic;
 using System.Linq;
 using SL.Lib;
 
-public class EnemyManager : MonoBehaviour
+public class EnemyManager : DynamicObject
 {
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private float enemyMoveInterval = 1f;
     private List<EnemyController> enemies = new List<EnemyController>();
     private float lastMoveTime;
     private float monsterAddingTime;
+
+    public override void UpdateState()
+    {
+        foreach(var enemy in enemies)
+        {
+            enemy.UpdateState();
+        }
+    }
+
+    public void ApplyQueuedMove()
+    {
+        foreach (var enemy in enemies)
+        {
+            enemy.ApplyQueuedMove();
+        }
+    }
+
+    public void HandleInput()
+    {
+        foreach (var enemy in enemies)
+        {
+            enemy.HandleInput();
+        }
+    }
 
     public void InitializeEnemies(List<Vector2> positions, (int,int) mazeSize)
     {
