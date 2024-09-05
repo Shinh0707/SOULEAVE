@@ -126,54 +126,8 @@ namespace SL.Lib
                 throw new ArgumentException("Input tensor must be 2-dimensional");
             }
 
-            int rows = tensor.Shape[0];
-            int cols = tensor.Shape[1];
-            _label = Tensor<int>.Empty(rows,cols);
-
-            int currentLabel = 1;
-            var equivalenceTable = new Dictionary<int, int>();
-
-            // First pass: assign temporary labels and record equivalences
-            for (int i = 0; i < rows; i++)
-            {
-                for (int j = 0; j < cols; j++)
-                {
-                    if (tensor[i, j] != backgroundValue)
-                    {
-                        var neighbors = GetNeighbors(i, j, rows, cols)
-                            .Select(p => _label[p.Item1, p.Item2])
-                            .Where(l => l != 0)
-                            .ToList();
-
-                        if (neighbors.Count == 0)
-                        {
-                            _label[i, j] = currentLabel++;
-                        }
-                        else
-                        {
-                            int minLabel = neighbors.Min();
-                            _label[i, j] = minLabel;
-
-                            foreach (var neighbor in neighbors.Where(n => n != minLabel))
-                            {
-                                Union(equivalenceTable, minLabel, neighbor);
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Second pass: resolve equivalences
-            for (int i = 0; i < rows; i++)
-            {
-                for (int j = 0; j < cols; j++)
-                {
-                    if (_label[i, j] != 0)
-                    {
-                        _label[i, j] = Find(equivalenceTable, _label[i, j]);
-                    }
-                }
-            }
+            var CCL = new ConnectedComponentLabeling();
+            _label = CCL.LabelImage(tensor != backgroundValue);
 
             // Collect unique labels (excluding background)
             _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToList();
@@ -202,38 +156,6 @@ namespace SL.Lib
             {
                 func(_label == kind, kind);
             }
-        }
-
-        private IEnumerable<Tuple<int, int>> GetNeighbors(int i, int j, int rows, int cols)
-        {
-            if (i > 0) yield return Tuple.Create(i - 1, j);
-            if (j > 0) yield return Tuple.Create(i, j - 1);
-        }
-
-        private void Union(Dictionary<int, int> equivalenceTable, int a, int b)
-        {
-            int rootA = Find(equivalenceTable, a);
-            int rootB = Find(equivalenceTable, b);
-
-            if (rootA != rootB)
-            {
-                equivalenceTable[rootB] = rootA;
-            }
-        }
-
-        private int Find(Dictionary<int, int> equivalenceTable, int label)
-        {
-            if (!equivalenceTable.ContainsKey(label))
-            {
-                equivalenceTable[label] = label;
-            }
-
-            if (equivalenceTable[label] != label)
-            {
-                equivalenceTable[label] = Find(equivalenceTable, equivalenceTable[label]);
-            }
-
-            return equivalenceTable[label];
         }
 
         public enum AreaMaskSelectMode
