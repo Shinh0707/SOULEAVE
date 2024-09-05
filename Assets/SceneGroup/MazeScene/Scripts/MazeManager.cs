@@ -194,17 +194,24 @@ public class MazeManager : MonoBehaviour
 
     public void BoundRange(int si, int irange,int sj, int jrange, Action<Vector3,int> action)
     {
-        int imax = Mathf.Min(si + irange, mazeSize.rows-1);
-        int jmax = Mathf.Min(sj + jrange, mazeSize.cols-1);
-        int istart = Mathf.Max(si, 0);
-        int jstart = Mathf.Max(sj, 0);
+        int imax = Mathf.Min(si + irange, mazeSize.rows+1);
+        int jmax = Mathf.Min(sj + jrange, mazeSize.cols+1);
+        int istart = Mathf.Max(si, -1);
+        int jstart = Mathf.Max(sj, -1);
         var halfOffset = Vector3.one * 0.5f;
         halfOffset.z = 0f;
         for (int i = istart; i < imax; i++)
         {
             for (int j = jstart; j < jmax; j++)
             {
-                action.Invoke(GetTilePosition((i, j))+halfOffset, baseMap[i, j]);
+                if (i < 0 || j < 0 || i >= mazeSize.rows || j >= mazeSize.cols)
+                {
+                    action.Invoke(GetTilePosition((i, j)) + halfOffset, 1);
+                }
+                else
+                {
+                    action.Invoke(GetTilePosition((i, j)) + halfOffset, baseMap[i, j]);
+                }
             }
         }
     }

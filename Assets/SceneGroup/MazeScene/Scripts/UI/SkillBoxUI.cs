@@ -11,6 +11,7 @@ public class SkillBoxUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI levelLabel;
     [SerializeField] private TextMeshProUGUI keyLabel;
     [SerializeField] private Image Icon;
+    [SerializeField] private Image background;
     private SkillManager _skillManager;
 
     public void Initilize(SkillManager skillManager,KeyCode keyCode)
@@ -21,6 +22,7 @@ public class SkillBoxUI : MonoBehaviour
         }
         _skillManager = skillManager;
         _skillManager.OnCoolDownChanged += OnCoolDownChanged;
+        OnCoolDownChanged(0f);
         nameLabel.text = skillManager.Skill.SkillName;
         levelLabel.text = skillManager.Skill.SkillLevelStr;
         keyLabel.text = keyCode.ToString();
@@ -29,7 +31,19 @@ public class SkillBoxUI : MonoBehaviour
 
     private void OnCoolDownChanged(float value)
     {
+
+        if (value > 0)
+        {
+            slider.fillRect.gameObject.SetActive(true);
+            background.color = SLColors.I.TransparentBlack;
+        }
+        else
+        {
+            slider.fillRect.gameObject.SetActive(false);
+            background.color = SLColors.I.TransparentBlackCyan;
+        }
         slider.value = value;
+
     }
 
     private void OnDestroy()

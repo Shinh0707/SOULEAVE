@@ -128,7 +128,7 @@ namespace SL.Lib
 
             var CCL = new ConnectedComponentLabeling();
             _label = CCL.LabelImage(tensor != backgroundValue);
-
+            //Debug.Log(_label);
             // Collect unique labels (excluding background)
             _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToList();
         }
@@ -340,6 +340,8 @@ namespace SL.Lib
             {
                 (field, tensorLabel) = AutoSet(field, Choice(new[] { MazeBaseTile.ROUTE, MazeBaseTile.WALL }, new[] { 0.1f, 1.0f }), minSize, tensorLabel);
             }
+            tensorLabel = new TensorLabel(field == 0);
+            //Debug.Log($"{tensorLabel.Label}");
             return (field, tensorLabel);
         }
 
