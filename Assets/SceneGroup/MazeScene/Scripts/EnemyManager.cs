@@ -31,7 +31,7 @@ public class EnemyManager : MonoBehaviour
 
     private void SpawnNewEnemy()
     {
-        Vector2 spawnPosition = MazeGameScene.Instance.MazeManager.GetPosition();
+        Vector2 spawnPosition = MazeGameScene.Instance.MazeManager.GetRandomPosition();
         SpawnEnemy(spawnPosition, MazeGameScene.Instance.MazeManager.mazeSize);
     }
 

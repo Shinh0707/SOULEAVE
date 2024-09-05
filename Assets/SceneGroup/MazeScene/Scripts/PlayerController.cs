@@ -1,11 +1,25 @@
+using SL.Lib;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerController : Character
 {
+    [SerializeField] private TileBased2DLight tileBased2DLight;
     public float MP { get; private set; }
-    public float Intensity { get; private set; }
+
+    private float _intensity;
+    public float Intensity {
+        get { return _intensity; }
+        private set
+        {
+            if (_intensity != value)
+            {
+                _intensity = value;
+                UpdateSightRange();
+            }
+        }
+    }
 
     public bool IsDead => Intensity <= 0;
 
@@ -44,21 +58,12 @@ public class PlayerController : Character
 
     private void RestoreMP()
     {
-        if (Time.time - _lastMPRestoreTime >= 1f)
-        {
-            MP = Mathf.Min(MP + MazeGameStats.Instance.RestoreMPPerSecond, MazeGameStats.Instance.MaxMP);
-            _lastMPRestoreTime = Time.time;
-        }
+        MP = Mathf.Min(MP + MazeGameStats.Instance.RestoreMPPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxMP);
     }
 
     private void RestoreSight()
     {
-        if (Time.time - _lastSightRestoreTime >= 1f)
-        {
-            Intensity = Mathf.Min(Intensity + MazeGameStats.Instance.RestoreSightPerSecond, MazeGameStats.Instance.MaxSight);
-            _lastSightRestoreTime = Time.time;
-            UpdateSightRange();
-        }
+        Intensity = Mathf.Min(Intensity + MazeGameStats.Instance.RestoreSightPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxSight);
     }
 
     protected virtual void UseHint()
@@ -128,7 +133,7 @@ public class PlayerController : Character
     {
         SightRange = MazeGameStats.Instance.VisibleBorder + Intensity;
         MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
-        MazeGameScene.Instance.MazeManager.UpdateVisibility(transform.position, Intensity, Color.cyan);
+        tileBased2DLight.LightRange = SightRange;
     }
 
     protected override void OnAfterMove()
@@ -175,7 +180,26 @@ public class PlayerController : Character
         // TODO: Remove invincibility visual effect
     }
 
-    public void OnCollisionEnter2D(Collision2D collision)
+    protected override void OnStartCondition(Condition startCondition)
+    {
+        switch (startCondition)
+        {
+            case Condition.Invincible:
+                characterCollider.AddExcludeLayer("Character");
+                break;
+        }
+    }
+    protected override void OnEndCondition(Condition startCondition)
+    {
+        switch (startCondition)
+        {
+            case Condition.Invincible:
+                characterCollider.RemoveExcludeLayer("Character");
+                break;
+        }
+    }
+
+    protected override void OnCollision(Collision2D collision)
     {
         Debug.Log($"Player collision to {collision.transform.name}");
         if(collision.transform.tag == "Goal")

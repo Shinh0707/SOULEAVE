@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using UnityEngine.Tilemaps;
 using UnityEngine.UIElements;
+using System;
 
 public class MazeManager : MonoBehaviour
 {
@@ -15,9 +16,7 @@ public class MazeManager : MonoBehaviour
     [SerializeField] private float mapScale = 1f;
     [SerializeField] private bool useDebugStartGoal = false;
     [SerializeField] private List<Tilemap> tilemaps;
-    [SerializeField] private Tilemap visibilityTilemap;
     [SerializeField] private List<TileBase> tileList; // 0: 通路, 1: 壁
-    [SerializeField] private TileBase visibilityTile;
 
     private Tensor<int> baseMap;
     private Tensor<float> lightTensor;
@@ -105,61 +104,6 @@ public class MazeManager : MonoBehaviour
             tilemaps[1].SetTile(rightPosition, tileList[1]);
         }
     }
-
-    public void UpdateVisibility(Vector2 playerPos, float intensity, Color baseColor) => SetMazeVisibilityTile(GetTensorPosition(playerPos), intensity, baseColor);
-    private void SetMazeVisibilityTile((int,int) playerPos, float intensity, Color baseColor)
-    {
-        // マップの中心を計算
-        Vector2Int mapCenter = new Vector2Int(mazeSize.cols / 2, mazeSize.rows / 2);
-        offset = centerPosition - mapCenter;
-        SimulateLightPropagation(playerPos, intensity);
-
-        for (int y = 0; y < mazeSize.rows; y++)
-        {
-            for (int x = 0; x < mazeSize.cols; x++)
-            {
-                Vector3Int tilePosition = new Vector3Int(x + offset.x, (mazeSize.rows - 1 - y) + offset.y, 0);
-                if (lightTensor[y, x] > 0 && baseMap[y, x] == 0)
-                {
-                    Color tileColor = Color.Lerp(Color.black, baseColor, lightTensor[y, x]);
-                    visibilityTilemap.SetTile(tilePosition, visibilityTile);
-                    visibilityTilemap.SetTileFlags(tilePosition, TileFlags.None);
-                    visibilityTilemap.SetColor(tilePosition, tileColor);
-                }
-                else
-                {
-                    visibilityTilemap.SetTile(tilePosition, null);
-                }
-            }
-        }
-    }
-
-    private void SimulateLightPropagation((int,int) indices, float intensity)
-    {
-        lightTensor = Tensor<float>.Zeros(baseMap);
-        lightTensor[indices.Item1,indices.Item2] = Mathf.Max(0f, intensity);
-        Tensor<bool> mazeMask = baseMap == 0;
-        Tensor<float> mazeFloatMask = mazeMask.Cast<float>();
-        mazeMask = !mazeMask;
-        Tensor<float> propKernel = Tensor<float>.FromArray(new[,]
-        {
-            {0f,0.5f,0f},
-            {0.5f,1f,0.5f},
-            {0f,0.5f,0f},
-        });
-        propKernel /= propKernel.Sum();
-
-        int numIterations = Mathf.CeilToInt(Mathf.Sqrt(Mathf.Abs(intensity)));
-
-        for (int i = 0; i < numIterations; i++) {
-            lightTensor = (lightTensor * mazeFloatMask).Convolve(propKernel, ConvolveMode.SAME);
-            lightTensor[indices.Item1,indices.Item2] = Mathf.Max(0f, intensity);
-            lightTensor[mazeMask] = 0f;
-        }
-
-        lightTensor = lightTensor.Clip(0f, 1f);
-    }
-
     public IEnumerator GenerateMazeAsync()
     {
         yield return GenerateBaseMaze();
@@ -209,8 +153,8 @@ public class MazeManager : MonoBehaviour
         var startCandidates = startAndGoalPoints[region].Item1;
         var goalCandidates = startAndGoalPoints[region].Item2;
 
-        var start = startCandidates[Random.Range(0, startCandidates.Count)];
-        var goal = goalCandidates[Random.Range(0, goalCandidates.Count)];
+        var start = startCandidates[SLRandom.Random.Next(0, startCandidates.Count)];
+        var goal = goalCandidates[SLRandom.Random.Next(0, goalCandidates.Count)];
 
         startPosition = GetWorldPosition(start);
         goalPosition = GetWorldPosition(goal);
@@ -222,9 +166,47 @@ public class MazeManager : MonoBehaviour
         var j = SLRandom.SelectRandom(positions[1]);
         return (i, j);
     }
-    public (int i, int j) GetTensorPosition(Vector2 position)
+    public (int i, int j) GetTensorPosition(Vector2 worldPosition)
     {
-        return (-(int)(position.y - offset.y - mazeSize.rows), (int)(position.x - offset.x));
+        return (-(int)(worldPosition.y - offset.y - mazeSize.rows), (int)(worldPosition.x - offset.x));
+    }
+
+    public Vector3Int GetTilePosition((int i, int j) tensorPosition)
+    {
+        return new Vector3Int(tensorPosition.j + offset.x, (mazeSize.rows - 1 - tensorPosition.i) + offset.y, 0);
+    }
+
+    public Vector3Int GetTilePosition(Vector2 worldPosition)
+    {
+        return GetTilePosition(GetTensorPosition(worldPosition));
+    }
+
+    public int GetMazeData(Vector2 worldPosition)
+    {
+        var indice = GetTensorPosition(worldPosition);
+        return baseMap[indice.i, indice.j];
+    }
+
+    public (Vector3 worldPosition, int data) GetTileData((int i, int j) indices)
+    {
+        return (GetTilePosition(indices), baseMap[indices.i, indices.j]);
+    }
+
+    public void BoundRange(int si, int irange,int sj, int jrange, Action<Vector3,int> action)
+    {
+        int imax = Mathf.Min(si + irange, mazeSize.rows-1);
+        int jmax = Mathf.Min(sj + jrange, mazeSize.cols-1);
+        int istart = Mathf.Max(si, 0);
+        int jstart = Mathf.Max(sj, 0);
+        var halfOffset = Vector3.one * 0.5f;
+        halfOffset.z = 0f;
+        for (int i = istart; i < imax; i++)
+        {
+            for (int j = jstart; j < jmax; j++)
+            {
+                action.Invoke(GetTilePosition((i, j))+halfOffset, baseMap[i, j]);
+            }
+        }
     }
 
     public Vector2 GetWorldPosition(Indice[] indices)
@@ -238,13 +220,13 @@ public class MazeManager : MonoBehaviour
     }
     public Vector2 GetWorldPosition((int i, int j) index) => GetWorldPosition(index.i, index.j);
 
-    public List<Vector2> GetPositions(int num)
+    public List<Vector2> GetRandomPositions(int num)
     {
         var predIndices = (tensorLabel.Label == currentRegion).ArgWhere();
         var indices = SLRandom.Choices(predIndices, Mathf.Min(num, predIndices.Count));
         return indices.Select(p => GetWorldPosition(p)).ToList();
     }
-    public Vector2 GetPosition()
+    public Vector2 GetRandomPosition()
     {
         return GetWorldPosition(SLRandom.Choice((tensorLabel.Label == currentRegion).ArgWhere()));
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace SL.Lib
 {
@@ -17,6 +18,89 @@ namespace SL.Lib
             var dst = new T[src.Length + 1];
             Insert(src, insertValue, insertIndex, dst);
             return dst;
+        }
+    }
+
+    public static class CollisionExtensions
+    {
+        public static LayerMask RemoveLayer(this LayerMask layerMask, int layerNumber)
+        {
+            // ÉåÉCÉÑÅ[ÇçÌèú
+            if (layerMask.HasLayer(layerNumber))
+            {
+                return layerMask & ~(1 << layerNumber);
+            }
+            return layerMask;
+        }
+        public static LayerMask RemoveLayer(this LayerMask layerMask, LayerMask layer) => layerMask.RemoveLayer(layer.value);
+
+        public static LayerMask RemoveLayer(this LayerMask layerMask, string layerName)
+        {
+            int layerNumber = LayerMask.NameToLayer(layerName);
+            if (layerNumber == -1)
+            {
+                Debug.LogError($"Layer '{layerName}' does not exist.");
+                return layerMask;
+            }
+            return layerMask.RemoveLayer(layerNumber);
+        }
+        public static LayerMask AddLayer(this LayerMask layerMask, int layerNumber)
+        {
+            if (!layerMask.HasLayer(layerNumber))
+            {
+                return layerMask | (1 << layerNumber);
+            }
+            return layerMask;
+        }
+        public static LayerMask AddLayer(this LayerMask layerMask, LayerMask layer) => layerMask.AddLayer(layer.value);
+        public static LayerMask AddLayer(this LayerMask layerMask, string layerName)
+        {
+            int layerNumber = LayerMask.NameToLayer(layerName);
+            if (layerNumber == -1)
+            {
+                Debug.LogError($"Layer '{layerName}' does not exist.");
+                return layerMask;
+            }
+            return layerMask.AddLayer(layerNumber);
+        }
+        public static bool HasLayer(this LayerMask layerMask, int layerNumber) => (layerMask.value & (1 << layerNumber)) != 0;
+        public static bool HasLayer(this LayerMask layerMask, LayerMask layer) => layerMask.HasLayer(layer.value);
+        public static bool HasLayer(this LayerMask layerMask, string layerName)
+        {
+            int layerNumber = LayerMask.NameToLayer(layerName);
+            if (layerNumber == -1)
+            {
+                Debug.LogWarning($"Layer '{layerName}' does not exist.");
+                return false;
+            }
+            return layerMask.HasLayer(layerNumber);
+        }
+        public static void AddIncludeLayer(this Collider2D collider, int layerToCheck)
+        {
+            collider.includeLayers = collider.includeLayers.AddLayer(layerToCheck);
+        }
+        public static void AddIncludeLayer(this Collider2D collider, LayerMask layerToCheck) => collider.AddIncludeLayer(layerToCheck.value);
+        public static void AddIncludeLayer(this Collider2D collider, string layerToCheck)
+        {
+            collider.includeLayers = collider.includeLayers.AddLayer(layerToCheck);
+        }
+        public static void AddExcludeLayer(this Collider2D collider, int layerToCheck)
+        {
+            collider.excludeLayers = collider.excludeLayers.AddLayer(layerToCheck);
+        }
+        public static void AddExcludeLayer(this Collider2D collider, LayerMask layerToCheck) => collider.AddExcludeLayer(layerToCheck.value);
+        public static void AddExcludeLayer(this Collider2D collider, string layerToCheck)
+        {
+            collider.excludeLayers = collider.excludeLayers.AddLayer(layerToCheck);
+        }
+        public static void RemoveExcludeLayer(this Collider2D collider, int layerToCheck)
+        {
+            collider.excludeLayers = collider.excludeLayers.RemoveLayer(layerToCheck);
+        }
+        public static void RemoveExcludeLayer(this Collider2D collider, LayerMask layerToCheck) => collider.RemoveExcludeLayer(layerToCheck.value);
+        public static void RemoveExcludeLayer(this Collider2D collider, string layerToCheck)
+        {
+            collider.excludeLayers = collider.excludeLayers.RemoveLayer(layerToCheck);
         }
     }
     public class SLRandom

@@ -2,17 +2,18 @@ using UnityEngine;
 using System.Collections.Generic;
 using SL.Lib;
 using System;
-
+using Unity.VisualScripting;
 public enum Direction { Up, Down, Left, Right }
 public enum Condition { Alive, Dead, Invincible, Stopped, Disabled }
 
-[RequireComponent(typeof(Rigidbody2D))]
-[RequireComponent(typeof(Collider2D))]
 public class Character : MonoBehaviour
 {
     [SerializeField] protected Collider2D characterCollider;
+    [SerializeField] protected LayerMask collisionLayer;
+    public Transform character;
+    public new Transform transform => character;
+    private CollisionDetector collisionDetector;
     protected Rigidbody2D rb;
-    protected ContactFilter2D contactFilter;
     protected RaycastHit2D[] hitColliders = new RaycastHit2D[1];
     protected Vector2 movement;
 
@@ -21,20 +22,49 @@ public class Character : MonoBehaviour
     public Direction Direction { get; protected set; }
     public float CurrentSpeed => movement.magnitude;
     public float MaxSpeed = 5f;
-    public Condition CurrentCondition { get; protected set; } = Condition.Alive;
+    private Condition _currentCondition = Condition.Disabled;
+    public Condition CurrentCondition
+    {
+        get
+        {
+            return _currentCondition;
+        }
+        set
+        {
+            if (_currentCondition != value)
+            {
+                var oldCondition = _currentCondition;
+                OnEndCondition(oldCondition);
+                OnStartCondition(value);
+                _currentCondition = value;
+                OnChangeCondition(oldCondition,CurrentCondition);
+            }
+        }
+    }
+
+    protected virtual void OnChangeCondition(Condition before, Condition after)
+    {
+    }
+    protected virtual void OnEndCondition(Condition endCondition) { }
+    protected virtual void OnStartCondition(Condition startCondition) { }
+
     public float SightRange = 5f;
 
     protected virtual void Awake()
     {
-        rb = GetComponent<Rigidbody2D>();
+        if (!character.TryGetComponent(out collisionDetector))
+        {
+            collisionDetector = character.AddComponent<CollisionDetector>();
+        }
+        rb = collisionDetector.rigidbody2d;
         rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.interpolation = RigidbodyInterpolation2D.Extrapolate;
         rb.gravityScale = 0f;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
-        contactFilter = new ContactFilter2D();
-        contactFilter.useTriggers = false;
-        contactFilter.SetLayerMask(LayerMask.GetMask("Wall"));
-        contactFilter.useLayerMask = true;
+        characterCollider.contactCaptureLayers = collisionLayer;
+        characterCollider.AddIncludeLayer("Character"); 
+        collisionDetector.OnCollisionDetected += OnCollision;
     }
 
     protected virtual void FixedUpdate()
@@ -110,5 +140,10 @@ public class Character : MonoBehaviour
         {
             return vector.y > 0 ? Direction.Up : Direction.Down;
         }
+    }
+
+    protected virtual void OnCollision(Collision2D collision)
+    {
+
     }
 }

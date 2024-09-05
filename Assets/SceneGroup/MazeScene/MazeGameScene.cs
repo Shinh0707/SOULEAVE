@@ -53,11 +53,11 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         var mazeSize = MazeManager.mazeSize;
         playerController.Initialize(mazeManager.StartPosition, mazeSize);
         goal = Instantiate(goalPrefab, new Vector3(mazeManager.GoalPosition.x, mazeManager.GoalPosition.y, 0f), Quaternion.identity);
-        enemyManager.InitializeEnemies(mazeManager.GetPositions(mazeManager.firstEnemies), mazeSize);
+        enemyManager.InitializeEnemies(mazeManager.GetRandomPositions(mazeManager.firstEnemies), mazeSize);
         uiManager.Initialize();
         CurrentState = GameState.Playing;
         var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
-        cameraFollow.Initialize(player.transform);
+        cameraFollow.Initialize(playerController.character);
         cameraFollow.follow = true;
 
         // TODO: プレイヤーの初期位置をカメラに追従させる処理を追加
