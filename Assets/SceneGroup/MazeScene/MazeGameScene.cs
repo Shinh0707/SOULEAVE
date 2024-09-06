@@ -20,7 +20,9 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         None = 0,
         FreezeTime = 1,
         FreezeState = 2,
-        FreezeInput = 4
+        FreezePlayerInput = 4,
+        FreezeEnemyInput = 8,
+        FreezeInput = 12
     }
     public GameState CurrentState { get; private set; }
     public GameFlag CurrentFlag { get; private set; }
@@ -60,11 +62,12 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     private IEnumerator SetupGame()
     {
         CurrentState = GameState.Setup;
-        yield return mazeManager.GenerateMazeAsync();
-        _gameStartTime = Time.time;
 #if true
         yield return SetupDebugMode();
 #endif
+        yield return mazeManager.GenerateMazeAsync();
+        _gameStartTime = Time.time;
+        PlayerStatusManager.Instance.ResetRuntimeStatus();
         player = Instantiate(playerPrefab);
         playerController = player.GetComponent<PlayerController>();
         var mazeSize = MazeManager.mazeSize;
@@ -107,14 +110,17 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
                 EnemyManager.UpdateState();
 
             }
-            if (!CurrentFlag.HasFlag(GameFlag.FreezeInput))
+            if (!CurrentFlag.HasFlag(GameFlag.FreezePlayerInput))
             {
                 Player.HandleInput();
-                EnemyManager.HandleInput();
                 if (Input.GetKeyDown(KeyCode.Escape))
                 {
                     PauseGame();
                 }
+            }
+            if (!CurrentFlag.HasFlag(GameFlag.FreezeEnemyInput))
+            {
+                EnemyManager.HandleInput();
             }
             CheckGameOverConditions();
 

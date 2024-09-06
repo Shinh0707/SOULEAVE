@@ -34,6 +34,8 @@ public class MazeManager : MonoBehaviour
     public Vector2 StartPosition => startPosition;
     public Vector2 GoalPosition => goalPosition;
 
+    public (int i,int j) GoalTensorPosition { get; private set; }
+
     private int currentRegion;
 
     public delegate void MazeGenerationCompleteHandler();
@@ -125,8 +127,11 @@ public class MazeManager : MonoBehaviour
         startAndGoalPoints = new();
         foreach (var label in tensorLabel.RouteLabels) 
         {
-            var sgArea = (tensorLabel.Label == label).ArgWhere();
-            startAndGoalPoints[label] = (sgArea, sgArea);
+            LongestPathFinder LPF = new(baseMap == 0, (tensorLabel.Label == label));
+            var result = LPF.FindLongestShortestPaths();
+            var starts = result.Select(r => new Indice[] {r.Item1.Item1, r.Item1.Item2});
+            var goals = result.Select(r => new Indice[] { r.Item2.Item1, r.Item2.Item2 });
+            startAndGoalPoints[label] = (starts.ToList(), goals.ToList());
         }
     }
 
@@ -158,6 +163,8 @@ public class MazeManager : MonoBehaviour
 
         startPosition = GetWorldPosition(start);
         goalPosition = GetWorldPosition(goal);
+        GoalTensorPosition = GetTensorPosition(goal);
+
     }
     private (int i, int j) GetTensorPosition(Indice[] indices)
     {

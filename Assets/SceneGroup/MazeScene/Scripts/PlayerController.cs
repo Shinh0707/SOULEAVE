@@ -33,6 +33,22 @@ public class PlayerController : Character
             }
         }
     }
+    private float _extreIntensity = 0f;
+    public float ExtraIntensity
+    {
+        get 
+        {
+            return _extreIntensity;
+        }
+        set
+        {
+            if (_extreIntensity != value)
+            {
+                _extreIntensity = value;
+                UpdateSightRange();
+            }
+        }
+    }
 
     public Dictionary<KeyCode, SkillManager> SkillBank { get; private set; }
 
@@ -75,29 +91,30 @@ public class PlayerController : Character
 
     private void RestoreMP()
     {
-        MP = Mathf.Min(MP + MazeGameStats.Instance.RestoreMPPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxMP);
+        MP = Mathf.Min(MP + PlayerStatusManager.RestoreMPPerSecond * Time.fixedDeltaTime, PlayerStatusManager.MaxMP);
     }
 
     private void RestoreSight()
     {
-        Intensity = Mathf.Min(Intensity + MazeGameStats.Instance.RestoreIntensityPerSecond * Time.fixedDeltaTime, MazeGameStats.Instance.MaxIntensity);
+        Intensity = Mathf.Min(Intensity + PlayerStatusManager.RestoreIntensityPerSecond * Time.fixedDeltaTime, PlayerStatusManager.MaxIntensity);
     }
 
     public override void Initialize(Vector2 position, (int rows, int cols) mazeSize)
     {
         base.Initialize(position, mazeSize);
-        MP = MazeGameStats.Instance.MaxMP;
-        Intensity = MazeGameStats.Instance.MaxIntensity;
+        MP = PlayerStatusManager.MaxMP;
+        Intensity = PlayerStatusManager.MaxIntensity;
+        MaxSpeed = PlayerStatusManager.MaxSpeed;
         SkillBank ??= PlayerStatusManager.Instance.GetSkills();
         UpdateSightRange();
     }
 
     protected void UpdateSightRange()
     {
-        SightRange = MazeGameStats.Instance.VisibleBorder + Intensity;
+        SightRange = MazeGameStats.Instance.VisibleBorder + Intensity + ExtraIntensity;
         MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
         tileBased2DLight.LightRange = SightRange;
-        wispParticle.transform.localScale = Vector3.one * Intensity/MazeGameStats.Instance.MaxIntensity;
+        wispParticle.transform.localScale = Vector3.one * Intensity/PlayerStatusManager.MaxIntensity;
     }
     protected void UpdateMP()
     {

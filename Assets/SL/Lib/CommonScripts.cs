@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -109,13 +110,14 @@ namespace SL.Lib
     {
         public static T GetOrAddComponent<T>(this Component obj) where T : Component
         {
-            if(obj.TryGetComponent(out T component))
+            if (obj.TryGetComponent(out T component))
             {
                 return component;
             }
             return obj.AddComponent<T>();
         }
     }
+
     public class SLRandom
     {
         private static System.Random _random;
@@ -199,6 +201,108 @@ namespace SL.Lib
             }
 
             return result;
+        }
+    }
+
+    public static class AdvancedRomanNumeralConverter
+    {
+        private static readonly Dictionary<int, string> romanNumerals = new Dictionary<int, string>
+    {
+        { 1000, "M" },
+        { 900, "CM" },
+        { 500, "D" },
+        { 400, "CD" },
+        { 100, "C" },
+        { 90, "XC" },
+        { 50, "L" },
+        { 40, "XL" },
+        { 10, "X" },
+        { 9, "IX" },
+        { 5, "V" },
+        { 4, "IV" },
+        { 1, "I" }
+    };
+
+        private const long MAX_STANDARD_VALUE = 3999;
+        private const long BRACKET_THRESHOLD = 500000;
+        private const long INFINITY_THRESHOLD = 1000000000000; // 1’›
+
+        public static string ConvertToRomanNumeral(long number)
+        {
+            if (number < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(number), "Number must be positive.");
+            }
+
+            if (number >= INFINITY_THRESHOLD)
+            {
+                return "‡"; // –³ŒÀ‘å‹L†
+            }
+
+            StringBuilder result = new StringBuilder();
+
+            if (number > MAX_STANDARD_VALUE)
+            {
+                result.Append(ConvertLargeNumber(number));
+            }
+            else
+            {
+                result.Append(ConvertStandardNumber((int)number));
+            }
+
+            return result.ToString();
+        }
+
+        private static string ConvertStandardNumber(int number)
+        {
+            StringBuilder result = new StringBuilder();
+            foreach (var item in romanNumerals)
+            {
+                while (number >= item.Key)
+                {
+                    result.Append(item.Value);
+                    number -= item.Key;
+                }
+            }
+            return result.ToString();
+        }
+
+        private static string ConvertLargeNumber(long number)
+        {
+            StringBuilder result = new StringBuilder();
+            int bracketCount = 0;
+
+            while (number >= 1000)
+            {
+                bracketCount++;
+                number /= 1000;
+            }
+
+            string core = ConvertStandardNumber((int)number);
+
+            if (bracketCount >= 2 || number >= BRACKET_THRESHOLD / 1000)
+            {
+                result.Append('(', bracketCount);
+                result.Append(core);
+                result.Append(')', bracketCount);
+            }
+            else
+            {
+                result.Append(core);
+                result.Append('M', bracketCount);
+            }
+
+            return result.ToString();
+        }
+
+        public static string ConvertToRomanNumeralOrDefault(long number, string defaultValue = "")
+        {
+            if (number < 1)
+            {
+                return defaultValue;
+            }
+
+            return ConvertToRomanNumeral(number);
         }
     }
 }

@@ -16,14 +16,11 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private Slider sightSlider;
     [SerializeField] private TextMeshProUGUI sightText;
     [SerializeField] private RawImage minimapImage;
-    [SerializeField] private GameObject hintArrow;
     [SerializeField] private RectTransform SkillBankBox;
     [SerializeField] private GameObject SkillBankContent;
     private Dictionary<KeyCode,SkillBoxUI> skillBoxes = new();
     [SerializeField] private TextMeshProUGUI elapsedTimeText;
     [SerializeField] private GameObject[] itemSlots;
-
-    private float hintTimer;
 
     public void Initialize()
     {
@@ -31,7 +28,6 @@ public class GameUIManager : MonoBehaviour
         pauseMenu.SetActive(false);
         gameOverScreen.SetActive(false);
         victoryScreen.SetActive(false);
-        hintArrow.SetActive(false);
         UpdateSkillBank();
     }
 
@@ -65,7 +61,7 @@ public class GameUIManager : MonoBehaviour
     }
     public void UpdatePlayerStats(float currentMp,float currentSight)
     {
-        UpdatePlayerStats(currentMp, MazeGameStats.Instance.MaxMP,currentSight, MazeGameStats.Instance.MaxIntensity);
+        UpdatePlayerStats(currentMp, PlayerStatusManager.MaxMP,currentSight, PlayerStatusManager.MaxIntensity);
     }
 
     public void UpdateMinimap(Texture2D minimapTexture)
@@ -95,16 +91,6 @@ public class GameUIManager : MonoBehaviour
         victoryScreen.SetActive(true);
     }
 
-    public void ShowHint()
-    {
-        hintArrow.SetActive(true);
-        hintTimer = MazeGameStats.Instance.HintDuration;
-    }
-
-    public void UpdateTeleportMode(bool isActive)
-    {
-        // Implement teleport mode UI update
-    }
     public void UpdateElapsedTime(float elapsedTime)
     {
         elapsedTimeText.text = $"Time: {elapsedTime:F1}s";

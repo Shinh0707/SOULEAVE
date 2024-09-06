@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Cyan: {r: 0, g: 0.7797034, b: 1, a: 1}
   TransparentBlack: {r: 0, g: 0, b: 0, a: 0.8}
-  TransparentBlackCyan: {r: 0.024919849, g: 0.49324167, b: 0.5660378, a: 0.8}
+  TransparentBlackCyan: {r: 0.17443922, g: 0.88411474, b: 0.990566, a: 0.6509804}
   CyanLight: {r: 0.40251565, g: 0.9690496, b: 1, a: 1}

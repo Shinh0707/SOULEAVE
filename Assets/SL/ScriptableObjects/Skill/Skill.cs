@@ -7,19 +7,45 @@ public class Skill
 {
     public SkillData data;
     public int currentLevel;
+    public bool isEnabled;
 
+    public bool Success => data.Success;
     public Skill(SkillData data)
     {
         this.data = data;
         this.currentLevel = 0;
     }
 
-    public bool CanUse(PlayerController player) => data.CanUse(player, currentLevel);
+    public bool CanUse(PlayerController player) => data.CanUse(player) && isEnabled;
 
     public IEnumerator Use(PlayerController player, KeyCode triggerKey) => data.ApplySkillEffects(player, currentLevel, triggerKey);
 
+    public void ApplyPassiveEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    {
+        if (isEnabled)
+        {
+            data.ApplyPassiveEffects(ref status, baseStatus);
+        }
+    }
+
+    public void ApplyMultiplicativeEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    {
+        if (isEnabled)
+        {
+            data.ApplyMultiplicativeEffects(ref status, baseStatus);
+        }
+    }
+
+    public void ApplyConstantEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    {
+        if (isEnabled)
+        {
+            data.ApplyConstantEffects(ref status, baseStatus);
+        }
+    }
+
     public string SkillName => data.skillName;
-    public string SkillLevelStr => currentLevel.ToString();
+    public string SkillLevelStr => SL.Lib.AdvancedRomanNumeralConverter.ConvertToRomanNumeralOrDefault(currentLevel);
 }
 
 public class SkillManager
@@ -37,7 +63,7 @@ public class SkillManager
             }
         }
     }
-    public bool IsBusy = false;
+    public bool IsBusy => Stacks > 0;
     public int Stacks { get; private set; }
 
     public SkillManager(Skill skill)
@@ -65,14 +91,16 @@ public class SkillManager
         if (CanUse(player))
         {
             CoolDownTimer = Skill.data.coolDown;
-            IsBusy = true;
             Stacks++;
             Debug.Log($"Skill used [{Skill.data.skillName}](level: {Skill.currentLevel})");
             yield return Skill.Use(player, triggerKey);
+            if (!Skill.Success)
+            {
+                CoolDownTimer = 0f;
+            }
             Stacks--;
             if (Stacks <= 0) 
             {
-                IsBusy = false;
                 while((!IsBusy)&&(CoolDownTimer > 0))
                 {
                     yield return new WaitForGameSeconds(1f);

@@ -114,7 +114,7 @@ namespace SL.Lib
 
         public Tensor<int> Label
         {
-            get { return new(_label,true); }
+            get { return new(_label, true); }
         }
 
         private List<int> _labelKinds;
@@ -133,7 +133,7 @@ namespace SL.Lib
             _labelKinds = _label.Unique.Where(l => l != 0).OrderBy(l => l).ToList();
         }
         public List<int> RouteLabels { get { return _labelKinds; } }
-        public int GetAreaSize(int label) => (_label==label).Cast<int>().Sum();
+        public int GetAreaSize(int label) => (_label == label).Cast<int>().Sum();
         public int GetAreaSize(Indice[] labelPosition) => GetAreaSize(_label[labelPosition].item);
 
         public void ApplyEachLabel<T>(Action<List<Indice[]>> func) where T : IComparable<T>
@@ -175,12 +175,12 @@ namespace SL.Lib
             else
             {
                 var areaSizes = _labelKinds.Select(label => GetAreaSize(label));
-                if(areaMaskSelectMode == AreaMaskSelectMode.MAX)
+                if (areaMaskSelectMode == AreaMaskSelectMode.MAX)
                 {
                     var maxAreaSize = areaSizes.Max();
                     selectedLabel = _labelKinds[SelectRandomIndex(areaSizes, maxAreaSize)];
                 }
-                else if(areaMaskSelectMode == AreaMaskSelectMode.MIN)
+                else if (areaMaskSelectMode == AreaMaskSelectMode.MIN)
                 {
                     var minAreaSize = areaSizes.Min();
                     selectedLabel = _labelKinds[SelectRandomIndex(areaSizes, minAreaSize)];
@@ -249,10 +249,10 @@ namespace SL.Lib
             }
             //Debug.Log(field);
             //Debug.Log(ESE);
-            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1))) 
+            if (MazeArrayHelper.IsPotentialSplitter(ESE.Extract(field, 1)))
             {
                 var predTensorLabel = new TensorLabel(predField == 0);
-                foreach(var routelabel in predTensorLabel.RouteLabels)
+                foreach (var routelabel in predTensorLabel.RouteLabels)
                 {
                     if (predTensorLabel.GetAreaSize(routelabel) < minSize)
                     {
@@ -287,11 +287,11 @@ namespace SL.Lib
             }
             var uniqLabels = ESE.Extract(tensorLabel.Label, 0)[mask].Unique.Where(l => l != 0);
             var replaceLabel = uniqLabels.Min();
-            foreach(var label in uniqLabels)
+            foreach (var label in uniqLabels)
             {
                 if (label != replaceLabel)
                 {
-                    tensorLabel.UpdateLabel(label,replaceLabel);
+                    tensorLabel.UpdateLabel(label, replaceLabel);
                 }
             }
             tensorLabel.UpdateLabel(pos, replaceLabel);
@@ -336,7 +336,7 @@ namespace SL.Lib
 
         public static (Tensor<int>, TensorLabel) AutoSetting(Tensor<int> field, int minSize, int numIterations, TensorLabel tensorLabel)
         {
-            for(int i = 0; i < numIterations; i++)
+            for (int i = 0; i < numIterations; i++)
             {
                 (field, tensorLabel) = AutoSet(field, Choice(new[] { MazeBaseTile.ROUTE, MazeBaseTile.WALL }, new[] { 0.1f, 1.0f }), minSize, tensorLabel);
             }
@@ -350,7 +350,308 @@ namespace SL.Lib
             var maze = Tensor<int>.Zeros(width, height);
             return AutoSetting(maze, minSize, 300, new TensorLabel(maze == 0));
         }
-        
+
+    }
+    public class PathFinder
+    {
+        private Tensor<bool> field;
+        private Dictionary<((int, int), (int, int)), List<(int, int)>> pathCache;
+
+        public PathFinder(Tensor<bool> field)
+        {
+            if (field.ndim != 2)
+                throw new ArgumentException("Field must be a 2D tensor.");
+
+            this.field = field;
+            this.pathCache = new Dictionary<((int, int), (int, int)), List<(int, int)>>();
+        }
+
+        public List<(int, int)> FindPath((int, int) start, (int, int) target, float accuracy)
+        {
+            if (accuracy < 0 || accuracy > 1)
+                throw new ArgumentException("Accuracy must be between 0 and 1.");
+
+            // If accuracy is 0, return simple direction to target
+            if (accuracy == 0)
+            {
+                return GetSimpleDirection(start, target);
+            }
+
+            Queue<((int, int), List<(int, int)>)> queue = new Queue<((int, int), List<(int, int)>)>();
+            HashSet<(int, int)> visited = new HashSet<(int, int)>();
+
+            queue.Enqueue((start, new List<(int, int)> { start }));
+            visited.Add(start);
+
+            (int, int)[] directions = { (-1, 0), (1, 0), (0, -1), (0, 1) };
+
+            List<(int, int)> bestPath = new List<(int, int)>();
+            double totalDistance = Math.Sqrt(Math.Pow(target.Item1 - start.Item1, 2) + Math.Pow(target.Item2 - start.Item2, 2));
+            double targetDistance = totalDistance * (1 - accuracy);
+
+            while (queue.Count > 0)
+            {
+                var (current, path) = queue.Dequeue();
+
+                // Check if we have a cached path for the remaining journey
+                var remainingPath = GetCachedPath(current, target);
+                if (remainingPath != null)
+                {
+                    path.AddRange(remainingPath.Skip(1)); // Skip the first point as it's already in the path
+                    if (path.Count > bestPath.Count) bestPath = path;
+                    continue;
+                }
+
+                double currentDistance = Math.Sqrt(Math.Pow(current.Item1 - target.Item1, 2) + Math.Pow(current.Item2 - target.Item2, 2));
+
+                if (currentDistance <= targetDistance || current == target)
+                {
+                    bestPath = path;
+                    break;
+                }
+
+                foreach (var (dx, dy) in directions)
+                {
+                    (int nx, int ny) = (current.Item1 + dx, current.Item2 + dy);
+
+                    if (nx >= 0 && nx < field.Shape[0] && ny >= 0 && ny < field.Shape[1] && field[nx, ny] && !visited.Contains((nx, ny)))
+                    {
+                        var newPath = new List<(int, int)>(path) { (nx, ny) };
+                        queue.Enqueue(((nx, ny), newPath));
+                        visited.Add((nx, ny));
+                    }
+                }
+            }
+
+            // If accuracy >= 0.5, continue to find the full path and then clip
+            if (accuracy >= 0.5 && bestPath.Count > 0 && bestPath[bestPath.Count - 1] != target)
+            {
+                var fullPath = ContinueToGoal(bestPath[bestPath.Count - 1], target, visited);
+                if (fullPath != null)
+                {
+                    bestPath.AddRange(fullPath.Skip(1));
+                    int clipIndex = (int)(bestPath.Count * accuracy);
+                    bestPath = bestPath.Take(clipIndex).ToList();
+                }
+            }
+
+            // Cache the result
+            CachePath(start, target, bestPath);
+
+            return bestPath;
+        }
+
+        private List<(int, int)> GetSimpleDirection((int, int) start, (int, int) target)
+        {
+            (int, int)[] directions = { (-1, 0), (1, 0), (0, -1), (0, 1) };
+
+            double bestAngle = double.MaxValue;
+            (int, int) bestDirection = (0, 0);
+
+            double targetAngle = Math.Atan2(target.Item2 - start.Item2, target.Item1 - start.Item1);
+
+            foreach (var (dx, dy) in directions)
+            {
+                (int nx, int ny) = (start.Item1 + dx, start.Item2 + dy);
+
+                if (nx >= 0 && nx < field.Shape[0] && ny >= 0 && ny < field.Shape[1] && field[nx, ny])
+                {
+                    double angle = Math.Atan2(dy, dx);
+                    double angleDiff = Math.Abs(AngleDifference(angle, targetAngle));
+
+                    if (angleDiff < bestAngle)
+                    {
+                        bestAngle = angleDiff;
+                        bestDirection = (dx, dy);
+                    }
+                }
+            }
+
+            // If no valid direction found, return the start position twice
+            if (bestDirection == (0, 0))
+            {
+                return new List<(int, int)> { start, start };
+            }
+
+            return new List<(int, int)> { start, (start.Item1 + bestDirection.Item1, start.Item2 + bestDirection.Item2) };
+        }
+
+        private static double AngleDifference(double angle1, double angle2)
+        {
+            double diff = Math.Abs(angle1 - angle2);
+            return Math.Min(diff, 2 * Math.PI - diff);
+        }
+
+        private List<(int, int)> ContinueToGoal((int, int) start, (int, int) target, HashSet<(int, int)> visited)
+        {
+            Queue<((int, int), List<(int, int)>)> queue = new Queue<((int, int), List<(int, int)>)>();
+            queue.Enqueue((start, new List<(int, int)> { start }));
+
+            (int, int)[] directions = { (-1, 0), (1, 0), (0, -1), (0, 1) };
+
+            while (queue.Count > 0)
+            {
+                var (current, path) = queue.Dequeue();
+
+                if (current == target)
+                {
+                    CachePath(start, target, path);
+                    return path;
+                }
+
+                foreach (var (dx, dy) in directions)
+                {
+                    (int nx, int ny) = (current.Item1 + dx, current.Item2 + dy);
+
+                    if (nx >= 0 && nx < field.Shape[0] && ny >= 0 && ny < field.Shape[1] && field[nx, ny] && !visited.Contains((nx, ny)))
+                    {
+                        var newPath = new List<(int, int)>(path) { (nx, ny) };
+                        queue.Enqueue(((nx, ny), newPath));
+                        visited.Add((nx, ny));
+                    }
+                }
+            }
+
+            return null; // Target not reachable
+        }
+
+        private void CachePath((int, int) start, (int, int) target, List<(int, int)> path)
+        {
+            pathCache[(start, target)] = path;
+
+            // Cache subpaths
+            for (int i = 0; i < path.Count; i++)
+            {
+                for (int j = i + 1; j < path.Count; j++)
+                {
+                    pathCache[(path[i], path[j])] = path.GetRange(i, j - i + 1);
+                }
+            }
+        }
+
+        private List<(int, int)> GetCachedPath((int, int) start, (int, int) target)
+        {
+            if (pathCache.TryGetValue((start, target), out var path))
+            {
+                return path;
+            }
+            return null;
+        }
+    }
+
+    public class LongestPathFinder
+    {
+        private readonly Tensor<bool> field;
+        private readonly Tensor<bool> mask;
+        private readonly List<(int, int)> validPoints;
+        private readonly Dictionary<(int, int), int[,]> distanceCache;
+
+        public LongestPathFinder(Tensor<bool> field, Tensor<bool> mask)
+        {
+            if (field.ndim != 2 || !field.MatchShape(mask))
+            {
+                throw new ArgumentException("Field and mask must be 2D tensors with the same shape.");
+            }
+
+            this.field = field;
+            this.mask = mask;
+            this.validPoints = GetValidPoints();
+            this.distanceCache = new Dictionary<(int, int), int[,]>();
+        }
+
+        private List<(int, int)> GetValidPoints()
+        {
+            var points = new List<(int, int)>();
+            for (int i = 0; i < field.Shape[0]; i++)
+            {
+                for (int j = 0; j < field.Shape[1]; j++)
+                {
+                    if (field[i, j] && mask[i, j])
+                    {
+                        points.Add((i, j));
+                    }
+                }
+            }
+            return points;
+        }
+
+        public List<((int, int), (int, int))> FindLongestShortestPaths()
+        {
+            int maxDistance = 0;
+            var longestPaths = new List<((int, int), (int, int))>();
+
+            for (int i = 0; i < validPoints.Count; i++)
+            {
+                var start = validPoints[i];
+                var distances = GetDistances(start);
+
+                for (int j = i + 1; j < validPoints.Count; j++)
+                {
+                    var end = validPoints[j];
+                    int distance = distances[end.Item1, end.Item2];
+
+                    if (distance > maxDistance)
+                    {
+                        maxDistance = distance;
+                        longestPaths.Clear();
+                        longestPaths.Add((start, end));
+                    }
+                    else if (distance == maxDistance)
+                    {
+                        longestPaths.Add((start, end));
+                    }
+                }
+            }
+
+            return longestPaths;
+        }
+
+        private int[,] GetDistances((int, int) start)
+        {
+            if (!distanceCache.TryGetValue(start, out var distances))
+            {
+                distances = CalculateDistances(start);
+                distanceCache[start] = distances;
+            }
+            return distances;
+        }
+
+        private int[,] CalculateDistances((int, int) start)
+        {
+            int rows = field.Shape[0];
+            int cols = field.Shape[1];
+            var distances = new int[rows, cols];
+            for (int i = 0; i < rows; i++)
+                for (int j = 0; j < cols; j++)
+                    distances[i, j] = -1;
+
+            var queue = new Queue<(int, int, int)>();
+
+            queue.Enqueue((start.Item1, start.Item2, 0));
+            distances[start.Item1, start.Item2] = 0;
+
+            int[][] directions = new int[][] { new int[] { 1, 0 }, new int[] { -1, 0 }, new int[] { 0, 1 }, new int[] { 0, -1 } };
+
+            while (queue.Count > 0)
+            {
+                var (row, col, distance) = queue.Dequeue();
+
+                foreach (var dir in directions)
+                {
+                    int newRow = row + dir[0];
+                    int newCol = col + dir[1];
+
+                    if (newRow >= 0 && newRow < rows && newCol >= 0 && newCol < cols &&
+                        distances[newRow, newCol] == -1 && field[newRow, newCol])
+                    {
+                        queue.Enqueue((newRow, newCol, distance + 1));
+                        distances[newRow, newCol] = distance + 1;
+                    }
+                }
+            }
+
+            return distances;
+        }
     }
 
     public class MazeArrayHelper
@@ -363,7 +664,7 @@ namespace SL.Lib
         private static Tensor<float> _neighborMask;
         private static Tensor<bool> _neighborBoolMask;
         private static Tensor<float> _deltaMask;
-        
+
 
         public static Tensor<float> RotMasks
         {
@@ -375,7 +676,7 @@ namespace SL.Lib
                         { 1f, 0f, 1f },
                         { 0f, 0f, 1f },
                         { 1f, 1f, 1f }
-                    },true);
+                    }, true);
 
                     var s2 = Tensor<float>.FromArray(new[,]
                     {
@@ -410,7 +711,7 @@ namespace SL.Lib
                     { 0, 1, 2 },
                     { 7, 8, 3 },
                     { 6, 5, 4 }
-                },true);
+                }, true);
             }
         }
 
@@ -456,7 +757,7 @@ namespace SL.Lib
                     { false, true, false },
                     { true, false, true },
                     { false, true, false }
-                },true);
+                }, true);
             }
         }
 
@@ -493,7 +794,7 @@ namespace SL.Lib
             var R = Tensor<float>.Zeros(field);
             var conv = padded.Convolve(NeighborMask);
             Debug.Log($"Convolved: {conv}");
-            R[mask] =conv[mask];
+            R[mask] = conv[mask];
             return R;
         }
 
@@ -530,7 +831,7 @@ namespace SL.Lib
                  {0f, ddy, 0f},
             }) * (alpha * dt);
             var neighborCount = alpha * dt * ddx * neighborScore;
-            for (int i = 0; i < steps; i++) 
+            for (int i = 0; i < steps; i++)
             {
                 var lap = R.Pad(1, new ConstantPadMode<float>(0f)).Convolve(kernel);
                 R[maskedIndice] += lap[maskedIndice] - neighborCount[maskedIndice] * R[maskedIndice];
@@ -574,13 +875,13 @@ namespace SL.Lib
             return normalizedPeak;
         }
 
-        public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, int maxSteps = 1000, float _alpha=0.5f)
+        public static Tensor<float> Fluid(Tensor<float> sources, Tensor<float> stables, Tensor<bool> mask, float fmin, float fmax, int maxSteps = 1000, float _alpha = 0.5f)
         {
             float alpha = Mathf.Min(_alpha, 1.0f);
             var floatMask = mask.Cast<float>();
             var floatPadMode = new ConstantPadMode<float>(0);
             (int i, int j)[] rollOffsets = (new[] { (0, 1), (0, -1), (1, 0), (-1, 0) });
-            Tensor<float> countTable = Tensor<float>.Stack(rollOffsets.Select(ij => floatMask.Slide(ij.i,ij.j,floatPadMode)),0).Sum(0) * floatMask;
+            Tensor<float> countTable = Tensor<float>.Stack(rollOffsets.Select(ij => floatMask.Slide(ij.i, ij.j, floatPadMode)), 0).Sum(0) * floatMask;
             var updatedChecker = ((stables != 0) & (countTable > 0)).Cast<float>();
             var mulCountTable = 1 / (countTable + 1);
             var fluidCurrent = new Tensor<float>(sources);
@@ -590,7 +891,7 @@ namespace SL.Lib
             Tensor<float> currentFluid;
             Tensor<float> neighborSum;
             Tensor<bool> newFilled;
-            for(int step = 0; step < maxSteps; step++)
+            for (int step = 0; step < maxSteps; step++)
             {
                 newFilled = (filledSteps == -1) & (fluidCurrent > thresFill);
                 filledSteps[newFilled] = step;
@@ -605,7 +906,7 @@ namespace SL.Lib
             return filledSteps.MaxNormalize();
         }
 
-        public static Tensor<float> FluidDifficulty(Tensor<int> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, int maxSteps = 1000, float sourceAmount=3.0f)
+        public static Tensor<float> FluidDifficulty(Tensor<int> field, Tensor<float> normalizedPeak, Tensor<float> deltaScore, TensorLabel tensorLabel, int maxSteps = 1000, float sourceAmount = 3.0f)
         {
             var stable = (deltaScore.MinMaxNormalize() + 1f) * 0.5f;
             var maxPeak = normalizedPeak > 0;
@@ -640,7 +941,7 @@ namespace SL.Lib
         public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<int> field, TensorLabel tensorLabel)
         {
             var neighborScore = NeighborScore(field);
-            var deltaScore = DeltaScore(field,neighborScore);
+            var deltaScore = DeltaScore(field, neighborScore);
             var difficultyScore = Difficulty(field, neighborScore, deltaScore, tensorLabel, 5000);
             var difficultyPeaks = DifficultyPeaks(field, difficultyScore, tensorLabel);
             var fluidResult = FluidDifficulty(field, difficultyPeaks, deltaScore, tensorLabel, 5000);
@@ -690,7 +991,8 @@ namespace SL.Lib
         public static IEnumerator CalculateStartAndGoalPointsAsync(Tensor<int> baseMap, TensorLabel tensorLabel, Dictionary<int, (List<Indice[]>, List<Indice[]>)> startAndGoalPoints)
         {
             bool calculationComplete = false;
-            yield return GetStartAndGoalAsync(baseMap, tensorLabel, result => {
+            yield return GetStartAndGoalAsync(baseMap, tensorLabel, result =>
+            {
                 startAndGoalPoints = result;
                 calculationComplete = true;
             });
@@ -792,5 +1094,5 @@ namespace SL.Lib
         }
     }
 
-    
+
 }

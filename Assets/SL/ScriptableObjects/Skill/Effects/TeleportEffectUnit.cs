@@ -46,6 +46,7 @@ public class TeleportEffectUnit : EffectUnit
                 {
                     yield return null;
                 }
+                Success = false;
                 MazeGameScene.Instance.SetFreezeInput(false);
                 yield break;
             }
@@ -84,6 +85,7 @@ public class TeleportEffectUnit : EffectUnit
         MazeGameScene.Instance.SetFreezeInput(false);
         player.CurrentCondition = lastCondition;
         yield return player.InvincibilityCoroutine();
+        Success = true;
     }
 
     private IEnumerator ShowWarpEffect(Vector2 start, Vector2 end)

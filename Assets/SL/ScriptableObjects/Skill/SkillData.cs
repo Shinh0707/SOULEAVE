@@ -102,14 +102,25 @@ public class SkillUseCostData
     public ResourceCost MPCost;
     public ResourceCost IntensityCost;
 
+    private float lastMP = 0f;
+    private float lastIntensity = 0f;
+
     public bool CanUse(PlayerController player)
     {
-        return MPCost.CheckRequired(player.MP, MazeGameStats.Instance.MaxMP) && IntensityCost.CheckRequired(player.Intensity, MazeGameStats.Instance.MaxIntensity);
+        return MPCost.CheckRequired(player.MP, PlayerStatusManager.MaxMP) && IntensityCost.CheckRequired(player.Intensity, PlayerStatusManager.MaxIntensity);
     }
     public void ApplyCost(PlayerController player)
     {
-        player.MP -= MPCost.useCost.GetActualCost(player.MP, MazeGameStats.Instance.MaxMP);
-        player.Intensity -= IntensityCost.useCost.GetActualCost(player.Intensity, MazeGameStats.Instance.MaxIntensity);
+        Debug.Log($"Applied Cost MP[{MPCost.useCost.GetActualCost(player.MP, PlayerStatusManager.MaxMP)}], Intensity[{IntensityCost.useCost.GetActualCost(player.Intensity, PlayerStatusManager.MaxIntensity)}]");
+        lastMP = player.MP;
+        lastIntensity = player.Intensity;
+        player.MP -= MPCost.useCost.GetActualCost(player.MP, PlayerStatusManager.MaxMP);
+        player.Intensity -= IntensityCost.useCost.GetActualCost(player.Intensity, PlayerStatusManager.MaxIntensity);
+    }
+    public void ReturnCost(PlayerController player)
+    {
+        player.MP = lastMP;
+        player.Intensity = lastIntensity;
     }
 }
 
@@ -128,12 +139,60 @@ public class SkillData : ScriptableObject
     public List<SkillRequirement> requirements;
     public List<EffectUnitEntry> effects;
 
+    public bool Success { get; private set; }
+
+    public bool HasManualEffects()
+    {
+        foreach(var effect in effects)
+        {
+            if (!effect.effectUnit.IsOnlyPassive) return true;
+        }
+        return false;
+    }
+
     public IEnumerator ApplySkillEffects(PlayerController player, int skillLevel, KeyCode triggerKey)
+    {
+        Success = true;
+        skillUseCostData.ApplyCost(player);
+        foreach (var effect in effects)
+        {
+            if (!effect.effectUnit.IsOnlyPassive)
+            {
+                int effectLevel = effect.levelMapping.GetEffectLevel(skillLevel);
+                yield return effect.effectUnit.ApplyEffect(player, effectLevel, triggerKey);
+                if (!effect.effectUnit.Success)
+                {
+                    Success = false;
+                    break;
+                }
+            }
+        }
+        if (!Success)
+        {
+            skillUseCostData.ReturnCost(player);
+        }
+    }
+    public void ApplyPassiveEffects(ref PlayerStatus status, PlayerStatus baseStatus)
     {
         foreach (var effect in effects)
         {
-            int effectLevel = effect.levelMapping.GetEffectLevel(skillLevel);
-            yield return effect.effectUnit.ApplyEffect(player, effectLevel, triggerKey);
+            effect.effectUnit.ApplyPassiveEffects(ref status, baseStatus);
+        }
+    }
+
+    public void ApplyMultiplicativeEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    {
+        foreach (var effect in effects)
+        {
+            effect.effectUnit.ApplyMultiplicativeEffects(ref status, baseStatus);
+        }
+    }
+
+    public void ApplyConstantEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    {
+        foreach (var effect in effects)
+        {
+            effect.effectUnit.ApplyConstantEffects(ref status, baseStatus);
         }
     }
 
@@ -142,5 +201,5 @@ public class SkillData : ScriptableObject
         return baseUpgradeCost * currentLevel;
     }
 
-    public bool CanUse(PlayerController player, int skillLevel) => skillUseCostData.CanUse(player);
+    public bool CanUse(PlayerController player) => skillUseCostData.CanUse(player) && HasManualEffects();
 }
