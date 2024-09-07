@@ -85,6 +85,13 @@ public class MazeManager : MonoBehaviour
         SetFrame();
         yield return new WaitForEndOfFrame();
         tilemaps[1].GetComponent<CompositeCollider2D>().GenerateGeometry();
+        foreach(var tilemap in tilemaps)
+        {
+            if(tilemap.TryGetComponent(out TilemapShadowCaster tilemapShadowCaster))
+            {
+                StartCoroutine(tilemapShadowCaster.ApplyShadowCasters());
+            }
+        }
     }
     private void SetFrame()
     {

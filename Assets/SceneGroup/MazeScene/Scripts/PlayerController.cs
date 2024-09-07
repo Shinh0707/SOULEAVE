@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class PlayerController : Character
 {
-    [SerializeField] private TileBased2DLight tileBased2DLight;
+    [SerializeField] private LightFlicker1fNoise targetLight;
     [SerializeField] private ParticleSystem wispParticle;
 
     private float _mp;
@@ -113,7 +113,8 @@ public class PlayerController : Character
     {
         SightRange = MazeGameStats.Instance.VisibleBorder + Intensity + ExtraIntensity;
         MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
-        tileBased2DLight.LightRange = SightRange;
+        targetLight.BaseRange = SightRange;
+        targetLight.BaseIntensity = Intensity + ExtraIntensity;
         wispParticle.transform.localScale = Vector3.one * Intensity/PlayerStatusManager.MaxIntensity;
     }
     protected void UpdateMP()

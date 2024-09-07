@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 namespace SL.Lib
 {
@@ -116,6 +118,14 @@ namespace SL.Lib
             }
             return obj.AddComponent<T>();
         }
+        public static T GetOrAddComponent<T>(this GameObject obj) where T : Component
+        {
+            if (obj.TryGetComponent(out T component))
+            {
+                return component;
+            }
+            return obj.AddComponent<T>();
+        }
     }
 
     public class SLRandom
@@ -203,6 +213,25 @@ namespace SL.Lib
             return result;
         }
     }
+    public static class ShadowCaster2DExtensions
+    {
+        public static void SetPath(this ShadowCaster2D shadowCaster, Vector3[] path)
+        {
+            FieldInfo shapeField = typeof(ShadowCaster2D).GetField("m_ShapePath",
+                                                                   BindingFlags.NonPublic |
+                                                                   BindingFlags.Instance);
+            shapeField.SetValue(shadowCaster, path);
+        }
+
+        public static void SetPathHash(this ShadowCaster2D shadowCaster, int hash)
+        {
+            FieldInfo hashField = typeof(ShadowCaster2D).GetField("m_ShapePathHash",
+                                                                  BindingFlags.NonPublic |
+                                                                  BindingFlags.Instance);
+            hashField.SetValue(shadowCaster, hash);
+        }
+    }
+
 
     public static class AdvancedRomanNumeralConverter
     {

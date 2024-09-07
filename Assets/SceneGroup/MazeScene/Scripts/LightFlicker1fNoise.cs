@@ -1,8 +1,9 @@
 using UnityEngine;
+using UnityEngine.Rendering.Universal;
 
 public class LightFlicker1fNoise : MonoBehaviour
 {
-    [SerializeField] public Light targetLight;
+    [SerializeField] public Light2D targetLight;
 
     [SerializeField] private float baseRange = 10f;
     [SerializeField] private float baseIntensity = 1f;
@@ -25,7 +26,7 @@ public class LightFlicker1fNoise : MonoBehaviour
         set
         {
             baseRange = value;
-            if (targetLight != null) targetLight.range = value;
+            if (targetLight != null) targetLight.pointLightOuterRadius = value;
         }
     }
 
@@ -43,7 +44,7 @@ public class LightFlicker1fNoise : MonoBehaviour
     {
         if (targetLight == null)
         {
-            targetLight = GetComponent<Light>();
+            targetLight = GetComponent<Light2D>();
             if (targetLight == null)
             {
                 Debug.LogError("No Light component found!");
@@ -75,7 +76,7 @@ public class LightFlicker1fNoise : MonoBehaviour
         float rangeNoise = Generate1fNoise(time);
         float intensityNoise = Generate1fNoise(time + 1000f); // Offset to get different noise
 
-        targetLight.range = baseRange*(1.0f+rangeNoise*rangeFlickerAmount);// * rangeFlickerAmount;
+        targetLight.pointLightOuterRadius = baseRange*(1.0f+rangeNoise*rangeFlickerAmount);// * rangeFlickerAmount;
         targetLight.intensity = baseIntensity * (1.0f + intensityNoise * intensityFlickerAmount);// * intensityFlickerAmount;
     }
 

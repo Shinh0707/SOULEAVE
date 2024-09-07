@@ -15,4 +15,4 @@ MonoBehaviour:
   passiveEffects: []
   maxLevel: 10
   showTime: 10
-  PathObject: {fileID: 7687069623497548417, guid: cc2f2749c14dfde4eb38bde08c19872d, type: 3}
+  PathObject: {fileID: 7380425757203458599, guid: cc2f2749c14dfde4eb38bde08c19872d, type: 3}

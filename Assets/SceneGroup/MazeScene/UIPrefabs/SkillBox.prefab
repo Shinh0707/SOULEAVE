@@ -430,7 +430,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5949011533086463526}
   - component: {fileID: 6340301440781447610}
-  - component: {fileID: 9210138482622759594}
   - component: {fileID: 4691486878194618198}
   - component: {fileID: 7015906982659516694}
   m_Layer: 5
@@ -480,30 +479,6 @@ MonoBehaviour:
   levelLabel: {fileID: 2317673451335969538}
   keyLabel: {fileID: 2937872504440623655}
   Icon: {fileID: 7805259156383223258}
---- !u!114 &9210138482622759594
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6587316016632887557}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: eb0bcaa9985408d4dafe85640202320f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  outlineImage: {fileID: 2953474903563625251}
-  coverImage: {fileID: 0}
-  useSpriteSwitching: 1
-  outlineSprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  coverSprite: {fileID: 10911, guid: 0000000000000000f000000000000000, type: 0}
-  minScale: 1
-  maxScale: 1.2
-  activeColor: {r: 1, g: 1, b: 1, a: 1}
-  inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  chargeColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  pulseDuration: 2
-  pauseDuration: 1
 --- !u!222 &4691486878194618198
 CanvasRenderer:
   m_ObjectHideFlags: 0
