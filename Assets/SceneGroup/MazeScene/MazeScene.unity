@@ -14,7 +14,7 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 9
-  m_Fog: 0
+  m_Fog: 1
   m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_FogMode: 3
   m_FogDensity: 0.01
@@ -392,7 +392,6 @@ MonoBehaviour:
   sightSlider: {fileID: 906024404}
   sightText: {fileID: 1021454467}
   minimapImage: {fileID: 0}
-  hintArrow: {fileID: 0}
   SkillBankBox: {fileID: 1685951924}
   SkillBankContent: {fileID: 6587316016632887557, guid: 733cb7061456cdf4a9f889ce16d55235, type: 3}
   elapsedTimeText: {fileID: 1248458525}
