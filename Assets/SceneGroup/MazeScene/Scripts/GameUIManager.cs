@@ -11,10 +11,10 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private GameObject gameOverScreen;
     [SerializeField] private GameObject victoryScreen;
 
-    [SerializeField] private Slider mpSlider;
-    [SerializeField] private TextMeshProUGUI mpText;
-    [SerializeField] private Slider sightSlider;
-    [SerializeField] private TextMeshProUGUI sightText;
+    [SerializeField] private CustomUIGauge fluxGauge;
+    [SerializeField] private TextMeshProUGUI fluxGaugeValueText;
+    [SerializeField] private CustomUIGauge intensityGauge;
+    [SerializeField] private TextMeshProUGUI intensityGaugeValueText;
     [SerializeField] private RawImage minimapImage;
     [SerializeField] private RectTransform SkillBankBox;
     [SerializeField] private GameObject SkillBankContent;
@@ -51,13 +51,13 @@ public class GameUIManager : MonoBehaviour
         }
     }
 
-    public void UpdatePlayerStats(float currentMp, float maxMp, float currentSight, float maxSight)
+    public void UpdatePlayerStats(float currentFlux, float maxFlux, float currentIntensity, float maxIntensity)
     {
-        mpSlider.value = currentMp / maxMp;
-        mpText.text = $"MP: {currentMp:F0} / {maxMp:F0}";
+        fluxGauge.CurrentValue = currentFlux / maxFlux;
+        fluxGaugeValueText.text = $"{currentFlux:F0} / {maxFlux:F0}";
 
-        sightSlider.value = currentSight / maxSight;
-        sightText.text = $"Sight: {currentSight:F2} / {maxSight:F2}";
+        intensityGauge.CurrentValue = currentIntensity / maxIntensity;
+        intensityGaugeValueText.text = $"{currentIntensity:F2} / {maxIntensity:F2}";
     }
     public void UpdatePlayerStats(float currentMp,float currentSight)
     {

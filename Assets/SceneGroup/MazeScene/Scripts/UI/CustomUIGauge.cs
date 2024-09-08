@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
+using SL.Lib;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -14,9 +16,13 @@ public class CustomUIGauge : MonoBehaviour
     public Color gaugeStartColor = Color.white;
     public Color gaugeEndColor = Color.white;
 
+    [SerializeField]
     private GameObject backgroundObject;
+    [SerializeField]
     private GameObject gaugeObject;
+    [SerializeField]
     private Image backgroundImage;
+    [SerializeField]
     private Image gaugeImage;
     private Material gaugeMaterial;
 
@@ -46,7 +52,8 @@ public class CustomUIGauge : MonoBehaviour
 
     public void GenerateGauge()
     {
-        if (isInitialized && backgroundObject != null && gaugeObject != null)
+        isInitialized &= backgroundObject != null && gaugeObject != null;
+        if (isInitialized)
         {
             UpdateGaugeAppearance();
             return;
@@ -71,11 +78,14 @@ public class CustomUIGauge : MonoBehaviour
         RectTransform gaugeRect = gaugeObject.GetComponent<RectTransform>();
 
         UpdateGaugeAppearance();
-
-        // Set size
-        Vector2 size = new Vector2(backgroundSprite.rect.width, backgroundSprite.rect.height);
-        backgroundRect.sizeDelta = size;
-        gaugeRect.sizeDelta = size;
+        Vector2 anchorMin = new Vector2(0.5f, 0f);
+        Vector2 anchorMax = new Vector2(0.5f, 1f);
+        backgroundRect.anchorMin = anchorMin;
+        backgroundRect.anchorMax = anchorMax;
+        backgroundRect.sizeDelta = Vector2.zero;
+        gaugeRect.anchorMin = anchorMin;
+        gaugeRect.anchorMax = anchorMax;
+        gaugeRect.sizeDelta = Vector2.zero;
 
         isInitialized = true;
     }
@@ -86,11 +96,13 @@ public class CustomUIGauge : MonoBehaviour
         {
             backgroundImage.sprite = backgroundSprite;
             backgroundImage.color = backgroundColor;
+            SetAspect(backgroundObject.transform, backgroundSprite);
         }
 
         if (gaugeImage != null)
         {
             gaugeImage.sprite = gaugeSprite;
+            SetAspect(gaugeObject.transform, gaugeSprite);
 
             if (gaugeShader != null)
             {
@@ -107,6 +119,16 @@ public class CustomUIGauge : MonoBehaviour
         }
 
         UpdateGaugeFill();
+    }
+
+    private void SetAspect(Transform targetTransform, Sprite sprite)
+    {
+        var width = sprite.rect.width;
+        var height = sprite.rect.height;
+        var ratio = width / height;
+        var aspectRatioFitter = targetTransform.GetOrAddComponent<AspectRatioFitter>();
+        aspectRatioFitter.aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
+        aspectRatioFitter.aspectRatio = ratio;
     }
 
     private void UpdateGaugeFill()
