@@ -23,6 +23,29 @@ namespace SL.Lib
             Insert(src, insertValue, insertIndex, dst);
             return dst;
         }
+        public static int IndexOf<T>(this IReadOnlyList<T> list, T item)
+        {
+            if (list == null)
+                throw new ArgumentNullException(nameof(list));
+
+            // List<T>の場合、既存のIndexOfメソッドを使用
+            if (list is List<T> asList)
+                return asList.IndexOf(item);
+
+            // T[]の場合、Array.IndexOfを使用
+            if (list is T[] asArray)
+                return Array.IndexOf(asArray, item);
+
+            // その他の場合、手動で探索
+            EqualityComparer<T> comparer = EqualityComparer<T>.Default;
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (comparer.Equals(list[i], item))
+                    return i;
+            }
+
+            return -1;  // 見つからなかった場合
+        }
     }
 
     public static class CollisionExtensions

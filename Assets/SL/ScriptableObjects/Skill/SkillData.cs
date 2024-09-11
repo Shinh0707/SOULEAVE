@@ -46,7 +46,7 @@ public class EffectUnitEntry
 [System.Serializable]
 public class SkillRequirement
 {
-    public SkillData requiredSkill;
+    public SelectableSkillName skillName;
     public int requiredLevel;
 }
 public enum CostType
@@ -150,6 +150,8 @@ public class SkillData : ScriptableObject
         return false;
     }
 
+    public bool IsRoot => requirements.Count == 0;
+
     public IEnumerator ApplySkillEffects(PlayerController player, int skillLevel, KeyCode triggerKey)
     {
         Success = true;
@@ -172,7 +174,7 @@ public class SkillData : ScriptableObject
             skillUseCostData.ReturnCost(player);
         }
     }
-    public void ApplyPassiveEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyPassiveEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
@@ -180,7 +182,7 @@ public class SkillData : ScriptableObject
         }
     }
 
-    public void ApplyMultiplicativeEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyMultiplicativeEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
@@ -188,7 +190,7 @@ public class SkillData : ScriptableObject
         }
     }
 
-    public void ApplyConstantEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyConstantEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
@@ -202,4 +204,37 @@ public class SkillData : ScriptableObject
     }
 
     public bool CanUse(PlayerController player) => skillUseCostData.CanUse(player) && HasManualEffects();
+
+    public bool IsUnlockable()
+    {
+        if (requirements.Count == 0) return true;
+        foreach(var req in requirements)
+        {
+            var skill = SkillTree.Instance.GetSkill(req.skillName);
+            if (!(skill.isUnlocked && skill.currentLevel >= req.requiredLevel)) return false;
+        }
+        return true;
+    }
+
+    public bool IsRequirement(SelectableSkillName skillName)
+    {
+        foreach(var req in requirements)
+        {
+            if(req.skillName.Equals(skillName)) return true;
+        }
+        return false;
+    }
+    public bool IsRequirementMet(SelectableSkillName skillName)
+    {
+        foreach (var req in requirements)
+        {
+            if (req.skillName.Equals(skillName))
+            {
+                var skill = SkillTree.Instance.GetSkill(req.skillName);
+                if (skill.isUnlocked && skill.currentLevel >= req.requiredLevel) return true;
+                return false;
+            }
+        }
+        return false;
+    }
 }

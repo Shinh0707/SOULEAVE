@@ -33,7 +33,6 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     private GameObject goal;
     [SerializeField] private EnemyManager enemyManager;
     [SerializeField] private GameUIManager uiManager;
-    [SerializeField] private DebugModeData debugModeData;
     public MazeManager MazeManager => mazeManager;
     private PlayerController playerController;
     public PlayerController Player => playerController;
@@ -62,9 +61,6 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
     private IEnumerator SetupGame()
     {
         CurrentState = GameState.Setup;
-#if true
-        yield return SetupDebugMode();
-#endif
         yield return mazeManager.GenerateMazeAsync();
         _gameStartTime = Time.time;
         PlayerStatusManager.Instance.ResetRuntimeStatus();
@@ -82,15 +78,6 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         GameTime = 0f;
 
         // TODO: ゲーム開始時のサウンドを再生する処理を追加
-    }
-
-    private IEnumerator SetupDebugMode()
-    {
-        foreach (var skill in debugModeData.skills)
-        {
-            PlayerStatusManager.Instance.AssignSkill(skill.key, skill.skill);
-        }
-        yield break;
     }
 
     private void FixedUpdate()
@@ -223,21 +210,6 @@ public class MazeGameScene : SingletonMonoBehaviour<MazeGameScene>
         yield return new WaitForNextPlayingFrame();
     }
 }
-
-[Serializable]
-public struct KeyCodeSkillSet
-{
-    public KeyCode key;
-    public Skill skill;
-}
-
-[Serializable]
-public class DebugModeData
-{
-    public List<KeyCodeSkillSet> skills;
-
-}
-
 
 public class WaitForGameSeconds : CustomYieldInstruction
 {

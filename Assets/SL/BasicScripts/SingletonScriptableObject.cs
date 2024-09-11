@@ -8,7 +8,7 @@ public abstract class SingletonScriptableObject<T> : ScriptableObject where T : 
 {
     private static T _instance = null;
 
-    public static T I
+    public static T Instance
     {
         get
         {

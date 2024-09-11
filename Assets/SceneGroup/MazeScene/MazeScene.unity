@@ -1284,23 +1284,6 @@ MonoBehaviour:
   goalPrefab: {fileID: 2470374563253171948, guid: 773d7169440046c4db6dc63a1bb7e7d9, type: 3}
   enemyManager: {fileID: 1282086665}
   uiManager: {fileID: 363399476}
-  debugModeData:
-    skills:
-    - key: 101
-      skill:
-        data: {fileID: 11400000, guid: e42459b41bbc37c4aa4ef7faea1352e6, type: 2}
-        currentLevel: 0
-        isEnabled: 1
-    - key: 114
-      skill:
-        data: {fileID: 11400000, guid: e6465cc3ef3441d48b52741394a415cf, type: 2}
-        currentLevel: 5
-        isEnabled: 1
-    - key: 116
-      skill:
-        data: {fileID: 11400000, guid: 008416626262e324a98f44880daeb3f9, type: 2}
-        currentLevel: 2
-        isEnabled: 1
 --- !u!4 &1161655192
 Transform:
   m_ObjectHideFlags: 0
@@ -1345,6 +1328,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7697e529e9a3e6045a6a57070fc2f9bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  skillBank:
+    skillDictionary:
+      list:
+      - Key: 101
+        Value:
+          skillName: Teleport
+      - Key: 114
+        Value:
+          skillName: Lead
+      - Key: 116
+        Value:
+          skillName: Flash
+      editingElement:
+        Key: 116
+        Value:
+          skillName: Flash
   defaultStatus:
     MaxIntensity: 2
     RestoreIntensityPerSecond: 0.5

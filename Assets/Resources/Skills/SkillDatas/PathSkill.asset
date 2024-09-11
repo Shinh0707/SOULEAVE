@@ -36,7 +36,10 @@ MonoBehaviour:
   singleton: 1
   baseUpgradeCost: 0
   maxLevel: 5
-  requirements: []
+  requirements:
+  - skillName:
+      skillName: Flash
+    requiredLevel: 1
   effects:
   - effectUnit: {fileID: 11400000, guid: 45bf96bb10ebd0c46baab6c344427f94, type: 2}
     levelMapping:

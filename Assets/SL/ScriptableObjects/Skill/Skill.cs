@@ -7,45 +7,117 @@ public class Skill
 {
     public SkillData data;
     public int currentLevel;
-    public bool isEnabled;
+    public bool isUnlocked;
+    [SerializeField]
+    private bool _isActivated;
 
-    public bool Success => data.Success;
-    public Skill(SkillData data)
+    public bool isActivated
     {
-        this.data = data;
-        this.currentLevel = 0;
+        get
+        {
+            if (data.HasManualEffects())
+            {
+                return isUnlocked;
+            }
+            return _isActivated && isUnlocked;
+        }
+        set
+        {
+            if (!data.HasManualEffects())
+            {
+                _isActivated = value;
+            }
+        }
+    }
+    public bool Success => data.Success;
+
+    public bool CanUse(PlayerController player) => data.CanUse(player) && isUnlocked;
+    public IEnumerator Use(PlayerController player, KeyCode triggerKey)
+    {
+        if (CanUse(player))
+        {
+            return data.ApplySkillEffects(player, currentLevel, triggerKey);
+        }
+        return null;
     }
 
-    public bool CanUse(PlayerController player) => data.CanUse(player) && isEnabled;
-
-    public IEnumerator Use(PlayerController player, KeyCode triggerKey) => data.ApplySkillEffects(player, currentLevel, triggerKey);
-
-    public void ApplyPassiveEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyPassiveEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
-        if (isEnabled)
+        if (isActivated)
         {
             data.ApplyPassiveEffects(ref status, baseStatus);
         }
     }
 
-    public void ApplyMultiplicativeEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyMultiplicativeEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
-        if (isEnabled)
+        if (isActivated)
         {
             data.ApplyMultiplicativeEffects(ref status, baseStatus);
         }
     }
 
-    public void ApplyConstantEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyConstantEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
-        if (isEnabled)
+        if (isActivated)
         {
             data.ApplyConstantEffects(ref status, baseStatus);
         }
     }
 
+    public int GetUpgradeCost()
+    {
+        return data.GetUpgradeCost(currentLevel + 1);
+    }
+
+    public bool CanUpgrade()
+    {
+        if(!isUnlocked)
+        {
+            return data.IsUnlockable();
+        }
+        return currentLevel < data.maxLevel;
+    }
+
     public string SkillName => data.skillName;
     public string SkillLevelStr => SL.Lib.AdvancedRomanNumeralConverter.ConvertToRomanNumeralOrDefault(currentLevel);
+    // GetHashCode のオーバーライド
+    public override int GetHashCode()
+    {
+        return SkillName.GetHashCode();
+    }
+
+    // Equals のオーバーライド
+    public override bool Equals(object obj)
+    {
+        return Equals(obj as Skill);
+    }
+
+    // IEquatable<Skill> の実装
+    public bool Equals(Skill other)
+    {
+        if (other is null)
+            return false;
+
+        return this.SkillName == other.SkillName;
+    }
+
+    // == 演算子のオーバーロード
+    public static bool operator ==(Skill left, Skill right)
+    {
+        if (ReferenceEquals(left, null))
+        {
+            return ReferenceEquals(right, null);
+        }
+
+        return left.Equals(right);
+    }
+
+    // != 演算子のオーバーロード
+    public static bool operator !=(Skill left, Skill right)
+    {
+        return !(left == right);
+    }
 }
 
 public class SkillManager

@@ -17,7 +17,7 @@ public enum OperationType
 [System.Serializable]
 public class StatusFormula
 {
-    public StatusType targetStat;
+    public CharacterStatusType targetStat;
     public OperationType operationType;
     public float value;
 
@@ -61,7 +61,7 @@ public abstract class EffectUnit : ScriptableObject
         Success = true;
         yield return null;
     }
-    public void ApplyPassiveEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyPassiveEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in passiveEffects.Where(e => e.operationType == OperationType.Addition))
         {
@@ -71,7 +71,7 @@ public abstract class EffectUnit : ScriptableObject
         }
     }
 
-    public void ApplyMultiplicativeEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyMultiplicativeEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in passiveEffects.Where(e => e.operationType == OperationType.Multiplication || e.operationType == OperationType.Division))
         {
@@ -81,7 +81,7 @@ public abstract class EffectUnit : ScriptableObject
         }
     }
 
-    public void ApplyConstantEffects(ref PlayerStatus status, PlayerStatus baseStatus)
+    public void ApplyConstantEffects(ref CharacterStatus status, CharacterStatus baseStatus)
     {
         foreach (var effect in passiveEffects.Where(e => e.operationType == OperationType.Constant))
         {
