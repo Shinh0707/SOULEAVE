@@ -74,6 +74,11 @@ public class TilemapShadowCaster : MonoBehaviour
                     ShadowCaster2D shadowCaster = go.AddComponent<ShadowCaster2D>();
                     ApplyShadowCasterProperties(shadowCaster);
                     SpriteRenderer spriteRenderer = go.AddComponent<SpriteRenderer>();
+                    if (tilemap.TryGetComponent(out TilemapRenderer tilemapRenderer)) {
+                        spriteRenderer.sharedMaterial = tilemapRenderer.sharedMaterial;
+                        spriteRenderer.sortingLayerID = tilemapRenderer.sortingLayerID;
+                    }
+                    spriteRenderer.receiveShadows = true;
                     spriteRenderer.enabled = true;
                     spriteRenderer.sprite = tilemap.GetSprite(position);
                     go.transform.SetParent(transform, false);

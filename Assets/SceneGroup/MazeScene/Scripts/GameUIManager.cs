@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
+using SL.Lib;
 
 public class GameUIManager : MonoBehaviour
 {

@@ -92,7 +92,7 @@ public class SkillTreeDialogManager : MonoBehaviour
                 if (skill.data.HasManualEffects())
                 {
                     int bankNo = PlayerStatus.Instance.SkillBank.GetSkillBankNo(skillName);
-                    registerButtonText.text = $"“o˜^‰ğœ\n(ƒXƒƒbƒg{bankNo + 1}‚É“o˜^Ï‚İ)";
+                    registerButtonText.text = $"“o˜^‰ğœ\n[ƒXƒƒbƒg{bankNo + 1}]";
                 }
                 else
                 {
@@ -165,7 +165,6 @@ public class SkillTreeDialogManager : MonoBehaviour
         {
             PlayerStatus.Instance.PlayerParameter.LP = availableLP;
             UpdateActionButton(skillName);
-            SkillTreeScene.Instance.UpdateSkillAvailability();
         }
     }
 }

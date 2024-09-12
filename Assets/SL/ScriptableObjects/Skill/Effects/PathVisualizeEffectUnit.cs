@@ -21,7 +21,7 @@ public class PathVisualizeEffectUnit : EffectUnit
             yield return null;
         }
         pathFinder = new(MazeGameScene.Instance.MazeManager.GetBaseMap() == 0);
-        var path = pathFinder.FindPath(MazeGameScene.Instance.MazeManager.GetTensorPosition(player.transform.position), MazeGameScene.Instance.MazeManager.GoalTensorPosition, Mathf.Clamp01((float)level / maxLevel));
+        var path = pathFinder.FindPath(MazeGameScene.Instance.MazeManager.GetTensorPosition(player.Position), MazeGameScene.Instance.MazeManager.GoalTensorPosition, Mathf.Clamp01((float)level / maxLevel));
         if (path != null)
         {
             Success = true;

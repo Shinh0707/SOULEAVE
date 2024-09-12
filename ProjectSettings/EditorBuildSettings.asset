@@ -8,4 +8,10 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/SampleScene.unity
     guid: 2cda990e2423bbf4892e6590ba056729
+  - enabled: 1
+    path: Assets/SceneGroup/MazeScene/MazeScene.unity
+    guid: d8f7552e2d057b94b8309004688c231a
+  - enabled: 1
+    path: Assets/SceneGroup/SkillTreeScene/SkillTreeScene.unity
+    guid: f73c1a04cd8d1b841b6f34144bc8af3e
   m_configObjects: {}

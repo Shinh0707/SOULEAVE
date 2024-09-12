@@ -38,6 +38,8 @@ public class SkillTreeLayout : MonoBehaviour
     private Vector2 virtualScreenCenter;
     private float screenOffset = 0f;
 
+    private Coroutine centeringCoroutine;
+
     private class SkillNodeInfo
     {
         public Vector2 VirtualPosition;
@@ -146,6 +148,10 @@ public class SkillTreeLayout : MonoBehaviour
         {
             cameraDragStart = Input.mousePosition;
             isDragging = true;
+            if (centeringCoroutine != null)
+            {
+                StopCoroutine(centeringCoroutine);
+            }
         }
         else if (Input.GetMouseButtonUp(0))
         {
@@ -399,7 +405,11 @@ public class SkillTreeLayout : MonoBehaviour
     public void CenterOnNode(SelectableSkillName skillName)
     {
         Vector2 nodePosition = skillNodes[skillName].VirtualPosition;
-        StartCoroutine(SmoothCenterOnNode(nodePosition));
+        if (centeringCoroutine != null)
+        {
+            StopCoroutine(centeringCoroutine);
+        }
+        centeringCoroutine = StartCoroutine(SmoothCenterOnNode(nodePosition));
     }
 
     private IEnumerator SmoothCenterOnNode(Vector2 targetPosition)

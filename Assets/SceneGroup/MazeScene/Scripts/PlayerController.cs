@@ -2,8 +2,14 @@ using SL.Lib;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Input = UnityEngine.Input;
+public class PlayerInput : IVirtualInput
+{
+    public Vector2 MovementInput => new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical")).normalized;
+    public bool IsActionPressed => Input.GetButtonDown("Fire1");
+}
 
-public class PlayerController : Character
+public class PlayerController : Character<PlayerInput>
 {
     [SerializeField] private LightFlicker1fNoise targetLight;
     [SerializeField] private ParticleSystem wispParticle;
@@ -63,17 +69,8 @@ public class PlayerController : Character
         RestoreSight();
     }
 
-    public override void HandleInput()
+    protected override void HandleAction()
     {
-        if (CurrentCondition != Condition.Alive && CurrentCondition != Condition.Invincible)
-            return;
-
-        // Movement
-        if (Input.GetKey(KeyCode.W)) MoveForward();
-        if (Input.GetKey(KeyCode.A)) MoveLeft();
-        if (Input.GetKey(KeyCode.S)) MoveBackward();
-        if (Input.GetKey(KeyCode.D)) MoveRight();
-
         // Skill
         foreach (var key in SkillBank.Keys)
         {
@@ -83,10 +80,6 @@ public class PlayerController : Character
                 StartCoroutine(SkillBank[key].Use(this,key));
             }
         }
-
-        // Items
-        if (Input.GetKeyDown(KeyCode.Alpha1)) ;
-        if (Input.GetKeyDown(KeyCode.Alpha2)) ;
     }
 
     private void RestoreMP()
@@ -111,7 +104,7 @@ public class PlayerController : Character
 
     protected void UpdateSightRange()
     {
-        SightRange = MazeGameStats.Instance.VisibleBorder + Intensity + ExtraIntensity;
+        SightRange = Intensity + ExtraIntensity;
         MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
         targetLight.BaseRange = SightRange;
         targetLight.BaseIntensity = Intensity + ExtraIntensity;
@@ -130,7 +123,7 @@ public class PlayerController : Character
 
     public void TakeDamage(float damage)
     {
-        if (!_isTransparent && CurrentCondition == Condition.Alive)
+        if (!_isTransparent && CurrentState == CharacterState.Alive)
         {
             // TODO: Implement damage logic
             Debug.Log($"Player took {damage} damage");
@@ -144,27 +137,27 @@ public class PlayerController : Character
 
     public IEnumerator InvincibilityCoroutine()
     {
-        CurrentCondition = Condition.Invincible;
+        CurrentState = CharacterState.Invincible;
         // TODO: Implement invincibility visual effect
         yield return new WaitForGameSeconds(1f); // Adjust invincibility duration as needed
-        CurrentCondition = Condition.Alive;
+        CurrentState = CharacterState.Alive;
         // TODO: Remove invincibility visual effect
     }
 
-    protected override void OnStartCondition(Condition startCondition)
+    protected override void OnStateEnter(CharacterState newState)
     {
-        switch (startCondition)
+        switch (newState)
         {
-            case Condition.Invincible:
+            case CharacterState.Invincible:
                 characterCollider.AddExcludeLayer("Character");
                 break;
         }
     }
-    protected override void OnEndCondition(Condition startCondition)
+    protected override void OnStateExit(CharacterState newState)
     {
-        switch (startCondition)
+        switch (newState)
         {
-            case Condition.Invincible:
+            case CharacterState.Invincible:
                 characterCollider.RemoveExcludeLayer("Character");
                 break;
         }
@@ -177,10 +170,14 @@ public class PlayerController : Character
         {
             MazeGameScene.Instance.Victory();
         }
-        else if(CurrentCondition == Condition.Alive && collision.transform.TryGetComponent(out EnemyController enemyController))
+        else if(CurrentState == CharacterState.Alive && collision.transform.TryGetComponent(out EnemyController enemyController))
         {
-            //âΩÇÁÇ©ÇÃèàóù
-            TakeDamage(MazeGameStats.Instance.EnemyDamage);
+            TakeDamage(enemyController.EnemyDamage(this));
         }
+    }
+
+    protected override void InitializeVirtualInput()
+    {
+        virtualInput = new PlayerInput();
     }
 }

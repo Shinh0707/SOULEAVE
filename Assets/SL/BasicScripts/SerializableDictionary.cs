@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using SL.Lib;
+
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -67,6 +69,31 @@ public class SerializableDictionary<TKey, TValue> : ISerializationCallbackReceiv
                 keys[i] = list[i].Key;
             }
             return keys;
+        }
+    }
+
+    public TValue[] Values
+    {
+        get
+        {
+            TValue[] values = new TValue[list.Count];
+            for (int i = 0; i < list.Count; i++)
+            {
+                values[i] = list[i].Value;
+            }
+            return values;
+        }
+    }
+    public (TKey key,TValue value)[] Items
+    {
+        get
+        {
+            (TKey key, TValue value)[] items = new (TKey key, TValue value)[list.Count];
+            for (int i = 0; i < list.Count; i++)
+            {
+                items[i] = (list[i].Key,list[i].Value);
+            }
+            return items;
         }
     }
 
@@ -420,7 +447,7 @@ public class SerializableDictionary<TKey, TValue> : ISerializationCallbackReceiv
 }
 
 #if UNITY_EDITOR
-[CustomPropertyDrawer(typeof(SerializableDictionary<KeyCode, SelectableSkillName>)), CanEditMultipleObjects]
-public class KeyCodeSelectableSkillNameDictionaryDrawer : SerializableDictionary<KeyCode, SelectableSkillName>.SerializableDictionaryDrawer { }
+[CustomPropertyDrawer(typeof(SerializableDictionary<Scenes, SceneData>)), CanEditMultipleObjects]
+public class ScenesDictionaryDrawer : SerializableDictionary<Scenes, SceneData>.SerializableDictionaryDrawer { }
 // 必要に応じて、他の具体的な型の組み合わせに対するDrawerを追加
 #endif

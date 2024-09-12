@@ -103,10 +103,10 @@ public class SkillBank
     public Dictionary<KeyCode, SkillManager> GetSkills()
     {
         return Enumerable.Range(0, AssignedSkills.Length)
-                         .Where(i => AssignedFlag[i])
+                         .Where(i => AssignedFlag[i] && SkillTree.Instance.GetSkill(AssignedSkills[i].skillName).isUnlocked)
                          .ToDictionary(
                              i => PlayerStatus.Instance.GetSkillKeyCode(i),
-                             i => new SkillManager(SkillTree.Instance.GetSkill(AssignedSkills[i].skillName))
+                             i => new SkillManager(SkillTree.Instance.GetSkill(AssignedSkills[i]))
                          );
     }
 

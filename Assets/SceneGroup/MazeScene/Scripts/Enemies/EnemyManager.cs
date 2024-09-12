@@ -6,10 +6,7 @@ using SL.Lib;
 public class EnemyManager : DynamicObject
 {
     [SerializeField] private GameObject enemyPrefab;
-    [SerializeField] private float enemyMoveInterval = 1f;
     private List<EnemyController> enemies = new List<EnemyController>();
-    private float lastMoveTime;
-    private float monsterAddingTime;
 
     public override void UpdateState()
     {
@@ -18,15 +15,6 @@ public class EnemyManager : DynamicObject
             enemy.UpdateState();
         }
     }
-
-    public void ApplyQueuedMove()
-    {
-        foreach (var enemy in enemies)
-        {
-            enemy.ApplyQueuedMove();
-        }
-    }
-
     public void HandleInput()
     {
         foreach (var enemy in enemies)
@@ -41,8 +29,6 @@ public class EnemyManager : DynamicObject
         {
             SpawnEnemy(position, mazeSize);
         }
-
-        // TODO: 迷路の状態をTensorで表現し、AIの学習に使用する準備をする
     }
 
     private void SpawnEnemy(Vector2 position, (int,int) mazeSize)

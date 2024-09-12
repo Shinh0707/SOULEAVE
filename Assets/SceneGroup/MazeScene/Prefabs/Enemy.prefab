@@ -10,10 +10,10 @@ GameObject:
   m_Component:
   - component: {fileID: 3925361486151013218}
   - component: {fileID: -2920646624027762853}
-  - component: {fileID: 4168064011306896663}
   - component: {fileID: -5417557940257599133}
   - component: {fileID: 7677578315173465362}
   - component: {fileID: 3370303544736030955}
+  - component: {fileID: -8310593071461761750}
   m_Layer: 7
   m_Name: Enemy
   m_TagString: Untagged
@@ -48,26 +48,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 49b1d6bca2616d640ac986a53fd55da2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &4168064011306896663
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5874671792324437732}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 97d04e41bcf729d498ed7aa127406979, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  characterCollider: {fileID: 7677578315173465362}
-  collisionLayer:
-    serializedVersion: 2
-    m_Bits: 192
-  character: {fileID: 3925361486151013218}
-  MaxSpeed: 5
-  SightRange: 5
-  ThinkingInterval: 0.5
 --- !u!212 &-5417557940257599133
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -110,7 +90,7 @@ SpriteRenderer:
   m_SortingLayer: 4
   m_SortingOrder: 0
   m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
-  m_Color: {r: 0.066037714, g: 0.066037714, b: 0.066037714, a: 1}
+  m_Color: {r: 0, g: 0.09856373, b: 0.2830189, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -182,3 +162,22 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 0
   m_Constraints: 4
+--- !u!114 &-8310593071461761750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5874671792324437732}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b69aa8c874e1b704db719a38d995a641, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  collisionLayer:
+    serializedVersion: 2
+    m_Bits: 192
+  character: {fileID: 5874671792324437732}
+  MaxSpeed: 5
+  SightRange: 5
+  ThinkingInterval: 0.1

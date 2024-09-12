@@ -1,3 +1,4 @@
+using SL.Lib;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -54,10 +55,10 @@ public class TeleportEffectUnit : EffectUnit
         }
 
         // ÉèÅ[Évèàóù
-        var lastCondition = player.CurrentCondition;
-        player.CurrentCondition = Condition.Invincible;
+        var lastCondition = player.CurrentState;
+        player.CurrentState = CharacterState.Invincible;
 
-        Vector2 startPosition = player.transform.position;
+        Vector2 startPosition = player.Position;
         Vector2 currentPosition = startPosition;
         float quant = 0.01f;
         int maxRange = Mathf.CeilToInt(player.Intensity / (MoveIntensityCost * quant)) - 1;
@@ -83,7 +84,7 @@ public class TeleportEffectUnit : EffectUnit
         yield return ShowWarpEffect(startPosition, currentPosition);
 
         MazeGameScene.Instance.SetFreezeInput(false);
-        player.CurrentCondition = lastCondition;
+        player.CurrentState = lastCondition;
         yield return player.InvincibilityCoroutine();
         Success = true;
     }
