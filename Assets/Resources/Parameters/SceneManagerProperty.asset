@@ -20,7 +20,10 @@ MonoBehaviour:
     - Key: 2
       Value:
         scenePath: Assets/SceneGroup/SkillTreeScene/SkillTreeScene.unity
-    editingElement:
-      Key: 2
+    - Key: 0
       Value:
-        scenePath: Assets/SceneGroup/SkillTreeScene/SkillTreeScene.unity
+        scenePath: Assets/SceneGroup/HomeScene/HomeScene.unity
+    editingElement:
+      Key: 0
+      Value:
+        scenePath: Assets/SceneGroup/HomeScene/HomeScene.unity

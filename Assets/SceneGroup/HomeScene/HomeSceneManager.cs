@@ -6,16 +6,11 @@ namespace SL.Lib
 {
     public class HomeSceneManager : SceneInitializer<HomeSceneManager>
     {
-        // Start is called before the first frame update
-        void Start()
+        [SerializeField] private GameObject Wisp;
+        protected override IEnumerator InitializeScene()
         {
-
-        }
-
-        // Update is called once per frame
-        void Update()
-        {
-
+            Wisp.SetActive(true);
+            yield return null;
         }
     }
 }

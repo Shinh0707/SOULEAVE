@@ -1,6 +1,8 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using UnityEngine.Events;
+
 
 
 #if UNITY_EDITOR
@@ -107,7 +109,7 @@ public class AnimatorClipSelector
     public GameObject target => animator == null ? null : animator.gameObject;
     public void PlayClip()
     {
-        if (animator != null && selectedClip != null)
+        if (HasAnimation)
         {
             target.SetActive(true);
             animator.Play(selectedClip.name);
@@ -118,19 +120,54 @@ public class AnimatorClipSelector
         }
     }
 
-    public IEnumerator PlayClipAsync()
+    public IEnumerator PlayClipAsync(float normalizedTime = 0.0f, float speed = 1.0f)
     {
-        if (animator != null && selectedClip != null)
+        if (HasAnimation)
         {
             target.SetActive(true);
-            animator.Play(selectedClip.name);
-            yield return new WaitForSeconds(selectedClip.length);
+            var lastSpeed = animator.speed;
+            animator.speed = speed;
+            animator.Play(selectedClip.name, -1, normalizedTime);
+            animator.speed = speed;
+            yield return new WaitForSeconds(selectedClip.length * (1.0f - normalizedTime) / Mathf.Abs(speed));
+            animator.speed = lastSpeed;
         }
         else
         {
             Debug.LogWarning("Animator or AnimationClip is not set.");
         }
     }
+    public IEnumerator RewindClipAsync(float normalizedTime = 1.0f, float rewindSpeed = 1.0f)
+    {
+        if (HasAnimation)
+        {
+            target.SetActive(true);
+            var lastSpeed = animator.speed;
+            animator.speed = -rewindSpeed;
+            animator.Play(selectedClip.name,-1, normalizedTime);
+            animator.speed = -rewindSpeed;
+            yield return new WaitForSeconds(selectedClip.length * normalizedTime / Mathf.Abs(rewindSpeed));
+            animator.speed = lastSpeed;
+        }
+        else
+        {
+            Debug.LogWarning("Animator or AnimationClip is not set.");
+        }
+    }
+    public CancellableAnimationPlayer PlayClipWithCancell(float normalizedStartTime = 0.0f, float playSpeed = 1.0f, float rewindSpeed = 1.0f)
+    {
+        if (HasAnimation)
+        {
+            return new CancellableAnimationPlayer(animator, selectedClip, playSpeed, rewindSpeed, normalizedStartTime, 1.0f);
+        }
+        else
+        {
+            Debug.LogWarning("Animator or AnimationClip is not set.");
+        }
+        throw new NotImplementedException();
+    }
+
+    public bool HasAnimation => animator != null && selectedClip != null;
 
 #if UNITY_EDITOR
     [CustomPropertyDrawer(typeof(AnimatorClipSelector))]
@@ -196,4 +233,57 @@ public class AnimatorClipSelector
         }
     }
 #endif
+}
+
+public class CancellableAnimationPlayer
+{
+    private Animator m_animator;
+    private AnimationClip m_clip;
+    private float startNormalizedTime;
+    private float endNormalizedTime;
+    private float playSpeed;
+    private float rewindSpeed;
+    private float playDuration;
+    private bool isPlaying;
+    private bool isCancelled;
+    public CancellableAnimationPlayer(Animator animator, AnimationClip clip, float playSpeed, float rewindSpeed, float startNormalizedTime, float endNormalizedTime)
+    {
+        m_animator = animator;
+        m_clip = clip;
+        this.playSpeed = playSpeed;
+        this.rewindSpeed = rewindSpeed;
+        this.startNormalizedTime = startNormalizedTime;
+        this.endNormalizedTime = endNormalizedTime;
+        playDuration = (endNormalizedTime - startNormalizedTime) * m_clip.length / playSpeed; 
+        isPlaying = false;
+        isCancelled = false;
+    }
+
+    public IEnumerator Play(UnityAction<bool> callback = null)
+    {
+        float playTime = 0f;
+        isPlaying = true;
+        isCancelled = false;
+        m_animator.Play(m_clip.name, -1, startNormalizedTime);
+        m_animator.speed = playSpeed;
+        while(playTime < playDuration && isPlaying)
+        {
+            yield return null;
+            playTime += Time.deltaTime;
+        }
+        if (playTime < playDuration)
+        {
+            isCancelled = true;
+            m_animator.speed = -rewindSpeed;
+            float rewindDuration = playTime / (rewindSpeed / playSpeed);
+            yield return new WaitForSeconds(rewindDuration);
+            callback?.Invoke(false);
+        }
+        callback?.Invoke(true);
+    }
+
+    public void Stop() 
+    {
+        isPlaying = false;
+    }
 }

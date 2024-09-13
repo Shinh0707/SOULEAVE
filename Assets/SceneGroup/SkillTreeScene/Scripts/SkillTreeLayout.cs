@@ -63,14 +63,17 @@ public class SkillTreeLayout : MonoBehaviour
 
     private void Update()
     {
-        UpdateScreenOffset();
-        UpdateVirtualScreenCenter();
-        HandleInput();
-        UpdateVisibleNodes();
-
-        if (isSnapping)
+        if (SkillTreeScene.Instance.IsInitialized)
         {
-            SnapToTarget();
+            UpdateScreenOffset();
+            UpdateVirtualScreenCenter();
+            HandleInput();
+            UpdateVisibleNodes();
+
+            if (isSnapping)
+            {
+                SnapToTarget();
+            }
         }
     }
 

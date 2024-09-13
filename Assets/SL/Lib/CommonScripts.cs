@@ -151,6 +151,59 @@ namespace SL.Lib
         }
     }
 
+    public static class RectTransformExtension
+    {
+        public static Vector3 ConvertToWorldPositionInCamera(this RectTransform rectTransform, Canvas canvas, Camera targetCamera, float depth, Vector2 screenOffset)
+        {
+            // 1. RectTransformの世界座標系でのデルタ位置を計算
+            RectTransform canvasRectTransform = canvas.transform as RectTransform;
+            Vector3[] canvasWorldCorners = new Vector3[4];//LD,LU,RU,RL
+            canvasRectTransform.GetWorldCorners(canvasWorldCorners);
+            Rect canvasWorldRect = new(canvasWorldCorners[0].x, canvasWorldCorners[0].y, canvasWorldCorners[3].x - canvasWorldCorners[0].x, canvasWorldCorners[1].y - canvasWorldCorners[0].y);
+            Vector3 canvasEdge = canvasWorldRect.position;
+            Vector3 uiWorldPos = rectTransform.position;
+            Vector3 deltaPosition = uiWorldPos - canvasEdge;
+
+            // 2. Canvasの世界座標系での大きさを計算
+            Vector3 canvasWorldSize = canvasWorldRect.size;
+
+            // 3. スケール係数を計算
+            Vector2 scaleFactor = new Vector2(
+                canvasWorldSize.x / canvasRectTransform.rect.width,
+                canvasWorldSize.y / canvasRectTransform.rect.height
+            );
+
+            // 4. デルタ位置をスケールで割る
+            Vector3 scaledDeltaPosition = new Vector3(
+                deltaPosition.x / scaleFactor.x,
+                deltaPosition.y / scaleFactor.y,
+                deltaPosition.z
+            );
+            // 5. スクリーン座標に変換
+            Vector3 screenPosition = scaledDeltaPosition + (Vector3)screenOffset;
+            // 6. Z座標を指定された深度に設定
+            screenPosition.z = depth;
+            // 7. スクリーン座標からワールド座標に変換
+            return targetCamera.ScreenToWorldPoint(screenPosition);
+        }
+        public static Vector3 ConvertToWorldPositionInCamera(this RectTransform rectTransform, Canvas canvas, Camera targetCamera, float depth = 10f) => rectTransform.ConvertToWorldPositionInCamera(canvas, targetCamera, depth, Vector2.zero);
+    }
+
+    public static class CameraExtension
+    {
+        public static float Depth(this Camera camera, Vector3 targetPosition)
+        {
+            // カメラの位置とオブジェクトの位置のベクトル差を計算
+            Vector3 cameraToObject = targetPosition - camera.transform.position;
+
+            // カメラの前方ベクトルを取得
+            Vector3 cameraForward = camera.transform.forward;
+
+            // 深度（距離）を計算
+            return Vector3.Dot(cameraToObject, cameraForward);
+        }
+    }
+
     public class SLRandom
     {
         private static System.Random _random;
