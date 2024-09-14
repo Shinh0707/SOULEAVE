@@ -1,6 +1,8 @@
 using SL.Lib;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Sl.Lib
@@ -9,10 +11,42 @@ namespace Sl.Lib
     public interface SoulInput : IVirtualInput
     {
     }
-    public abstract class SoulController<TInput> : Character<TInput> where TInput: SoulInput
+
+    public interface ISoulController
+    {
+        public Vector2 Position { get; }
+        public float Intensity { get; set; }
+        public float SightRange { get; set; }
+
+    }
+    public class SoulControllerManager
+    {
+        public static Dictionary<string, ISoulController> InstantinatedControllers = new();
+
+        public static string Add(ISoulController soulController)
+        {
+            string id = Guid.NewGuid().ToString();
+            InstantinatedControllers.Add(id, soulController);
+            return id;
+        }
+        public static void Remove(string id)
+        {
+            if (InstantinatedControllers.ContainsKey(id))
+            {
+                InstantinatedControllers.Remove(id);
+            }
+        }
+
+        public static List<ISoulController> GetOtherControllers(string id) => InstantinatedControllers.Where(p => p.Key != id).Select(p => p.Value).ToList();
+    }
+    public abstract class SoulController<TInput> : Character<TInput>, ISoulController where TInput : SoulInput
     {
         [SerializeField] private LightFlicker1fNoise targetLight;
         [SerializeField] private ParticleSystem wispParticle;
+
+        protected abstract CharacterStatus Status { get; }
+
+        private string id = null;
 
         private float _mp;
         public float MP
@@ -41,6 +75,7 @@ namespace Sl.Lib
                 }
             }
         }
+
         private float _extreIntensity = 0f;
         public float ExtraIntensity
         {
@@ -58,31 +93,56 @@ namespace Sl.Lib
             }
         }
 
-        public bool IsDead => Intensity <= 0;
-
         private bool _isTransparent;
         private Coroutine _transparencyCoroutine;
 
-        public abstract float MaxMP { get;}
-        public abstract float MaxIntensity { get;}
-        public abstract float RestoreIntensityPerSecond { get; }
-        public abstract float RestoreMPPerSecond { get; }
+        public float MaxMP => Status.MaxMP;
+        public float MaxIntensity => Status.MaxIntensity;
+        public float RestoreIntensityPerSecond => Status.RestoreIntensityPerSecond;
+        public float RestoreMPPerSecond => Status.RestoreMPPerSecond;
+        public float InvincibilityDuration => Status.InvincibilityDuration;
+        private float SharedLight
+        {
+            get
+            {
+                float total = 0f;
+                var nears = SoulControllerManager.GetOtherControllers(id).Select(p => (p, Vector2.Distance(p.Position, Position))).Where(p => p.Item2 < Mathf.Max(SightRange, p.p.SightRange));
+                if (nears.Count() == 0) return 0;
+                foreach (var souls in nears)
+                {
+                    if (souls.Item2 < 1f)
+                    {
+                        total += souls.p.Intensity;
+                    }
+                    else
+                    {
+                        total += souls.p.Intensity / souls.Item2;
+                    }
+                }
+                return total / nears.Count();
+            }
+        }
 
         public override void UpdateState()
         {
-            RestoreMP();
-            RestoreSight();
+            if (IsAlive)
+            {
+                RestoreMP();
+                RestoreSight();
+            }
         }
-
         protected virtual void RestoreMP()
         {
             MP = Mathf.Min(MP + RestoreMPPerSecond * Time.deltaTime, MaxMP);
         }
-
-
         protected virtual void RestoreSight()
         {
-            Intensity = Mathf.Min(Intensity + RestoreIntensityPerSecond * Time.deltaTime, MaxIntensity);
+            if (Intensity >= MaxIntensity)
+            {
+                Intensity = MaxIntensity;
+                return;
+            }
+            Intensity = Mathf.Min(Intensity + (RestoreIntensityPerSecond + SharedLight) * Time.deltaTime, MaxIntensity);
         }
 
         public override void Initialize(Vector2 position, (int rows, int cols) mazeSize)
@@ -90,6 +150,10 @@ namespace Sl.Lib
             base.Initialize(position, mazeSize);
             MP = MaxMP;
             Intensity = MaxIntensity;
+            if (id == null)
+            {
+                id = SoulControllerManager.Add(this);
+            }
             UpdateSightRange();
         }
 
@@ -112,56 +176,64 @@ namespace Sl.Lib
 
         public void TakeDamage(float damage)
         {
-            if (!_isTransparent && CurrentState == CharacterState.Alive)
+            if (!_isTransparent && IsAlive)
             {
                 // TODO: Implement damage logic
                 Debug.Log($"{character.name} took {damage} damage");
                 Intensity -= damage;
                 Intensity = Mathf.Max(Intensity, 0);
-                UpdateSightRange();
-                StartCoroutine(InvincibilityCoroutine());
-
+                if (Intensity == 0)
+                {
+                    CurrentState -= CharacterState.Alive;
+                }
+                else
+                {
+                    UpdateSightRange();
+                    StartCoroutine(InvincibilityCoroutine());
+                }
             }
         }
 
         public IEnumerator InvincibilityCoroutine()
         {
-            CurrentState = CharacterState.Invincible;
+            CurrentState |= CharacterState.Invincible;
             // TODO: Implement invincibility visual effect
-            yield return new WaitForGameSeconds(1f); // Adjust invincibility duration as needed
-            CurrentState = CharacterState.Alive;
+            yield return new WaitForGameSeconds(InvincibilityDuration); // Adjust invincibility duration as needed
+            CurrentState -= CharacterState.Invincible;
             // TODO: Remove invincibility visual effect
         }
 
         protected override void OnStateEnter(CharacterState newState)
         {
-            switch (newState)
+            if (newState.HasFlag(CharacterState.Invincible))
             {
-                case CharacterState.Invincible:
-                    characterCollider.AddExcludeLayer("Character");
-                    break;
+                characterCollider.AddExcludeLayer("Character");
             }
         }
         protected override void OnStateExit(CharacterState newState)
         {
-            switch (newState)
+            if (newState.HasFlag(CharacterState.Invincible))
             {
-                case CharacterState.Invincible:
-                    characterCollider.RemoveExcludeLayer("Character");
-                    break;
+                characterCollider.RemoveExcludeLayer("Character");
             }
         }
 
         protected override void OnCollision(Collision2D collision)
         {
             Debug.Log($"{character.name} collision to {collision.transform.name}");
-            if (CurrentState == CharacterState.Alive)
+            if (IsAlive)
             {
-                if (collision.transform.TryGetComponent(out EnemyController enemyController))
+                if (!CurrentState.HasFlag(CharacterState.Invincible) && collision.transform.TryGetComponent(out EnemyController enemyController))
                 {
                     TakeDamage(enemyController.EnemyDamage(this));
                 }
             }
+        }
+
+        private void OnDestroy()
+        {
+            SoulControllerManager.Remove(id);
+            id = null;
         }
     }
 

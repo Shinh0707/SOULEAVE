@@ -13,32 +13,20 @@ namespace SL.Lib {
 
         bool IVirtualInput.IsActionPressed { get => false; }
     }
-
-    public struct SoulNPCStatus
-    {
-        public float MaxMP;
-        public float MaxIntensity;
-        public float RestoreMPPerSecond;
-        public float RestoreIntensityPerSecond;
-    }
     public class SoulNPCController: SoulController<SoulNPCInput>
     {
-        private SoulNPCStatus status;
-        public override float MaxMP => status.MaxMP;
+        private CharacterStatus _status;
+        protected override CharacterStatus Status => _status;
 
-        public override float MaxIntensity => status.MaxIntensity;
+        public void InitializeStatus(CharacterStatus status)
+        {
+            _status = status;
+        }
 
-        public override float RestoreIntensityPerSecond => status.RestoreIntensityPerSecond;
-
-        public override float RestoreMPPerSecond => status.RestoreMPPerSecond;
         protected override void HandleMovement()
         {
             Think();
             base.HandleMovement();
-        }
-        public void InitializeStatus(SoulNPCStatus status)
-        {
-            this.status = status;
         }
         protected override void InitializeVirtualInput()
         {
@@ -47,7 +35,15 @@ namespace SL.Lib {
         private void Think()
         {
             // Movement‚É‚¢‚«‚½‚¢•ûŒü‚ð“ü‚ê‚é
-            virtualInput.Movement = Random.insideUnitCircle;
+            float rate = 0.6f;
+            virtualInput.Movement = rate*virtualInput.Movement + (1f- rate)*Random.insideUnitCircle;
+        }
+        public float ForceKill()
+        {
+            float remain = Intensity;
+            Intensity = 0f;
+            CurrentState -= CharacterState.Alive;
+            return remain;
         }
     }
 

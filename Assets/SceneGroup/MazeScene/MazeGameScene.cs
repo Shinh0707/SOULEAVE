@@ -81,6 +81,7 @@ namespace SL.Lib
                     Player.UpdateState();
                     EnemyManager.UpdateState();
                     SoulNPCManager.UpdateState();
+                    CheckGameOverConditions();
                 }
                 if (!CurrentFlag.HasFlag(GameFlag.FreezePlayerInput))
                 {
@@ -95,7 +96,6 @@ namespace SL.Lib
                 {
                     EnemyManager.HandleInput();
                 }
-                CheckGameOverConditions();
 
                 // TODO: ゲームの経過時間を更新し、UIに反映する処理を追加
                 // TODO: プレイヤーの位置に基づいてミニマップを更新する処理を追加

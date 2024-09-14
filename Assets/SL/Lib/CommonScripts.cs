@@ -149,6 +149,17 @@ namespace SL.Lib
             }
             return obj.AddComponent<T>();
         }
+        public static bool TryGetComponentInParent<T>(this Component obj, out T comp) where T : Component
+        {
+            comp = obj.GetComponentInParent<T>();
+            return comp != null;
+        }
+        public static bool TryGetComponentInParent<T>(this GameObject obj, out T comp) where T : Component
+        {
+            comp = obj.GetComponentInParent<T>();
+            return comp != null;
+        }
+
     }
 
     public static class RectTransformExtension

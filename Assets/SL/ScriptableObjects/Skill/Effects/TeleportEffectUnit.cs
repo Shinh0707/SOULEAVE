@@ -55,8 +55,7 @@ public class TeleportEffectUnit : EffectUnit
         }
 
         // ÉèÅ[Évèàóù
-        var lastCondition = player.CurrentState;
-        player.CurrentState = CharacterState.Invincible;
+        player.CurrentState |= CharacterState.Invincible;
 
         Vector2 startPosition = player.Position;
         Vector2 currentPosition = startPosition;
@@ -84,7 +83,7 @@ public class TeleportEffectUnit : EffectUnit
         yield return ShowWarpEffect(startPosition, currentPosition);
 
         MazeGameScene.Instance.SetFreezeInput(false);
-        player.CurrentState = lastCondition;
+        player.CurrentState -= CharacterState.Invincible;
         yield return player.InvincibilityCoroutine();
         Success = true;
     }

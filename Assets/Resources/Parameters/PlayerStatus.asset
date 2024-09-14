@@ -25,6 +25,7 @@ MonoBehaviour:
     MaxMP: 20
     RestoreMPPerSecond: 1
     MaxSpeed: 10
+    InvincibilityDuration: 0.5
   PlayerParameter:
     LP: 0
     MaxSkillBank: 4

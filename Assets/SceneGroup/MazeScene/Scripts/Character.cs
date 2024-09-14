@@ -4,7 +4,15 @@ using System.Collections.Generic;
 using SL.Lib;
 
 public enum Direction { Up, Down, Left, Right }
-public enum CharacterState { Alive, Dead, Invincible, Stopped, Disabled }
+
+[Flags]
+public enum CharacterState {
+    Dead = 0,
+    Alive = 1, 
+    Invincible = 2, 
+    Stopped = 4, 
+    Disabled = 5
+}
 
 public interface IVirtualInput
 {
@@ -56,7 +64,18 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
         }
     }
 
-    public float SightRange = 5f;
+    public bool IsAlive => CurrentState.HasFlag(CharacterState.Alive);
+    public bool IsDead => !IsAlive;
+
+    public float _sightRange = 5f;
+
+    public float SightRange { 
+        get => _sightRange;
+        set 
+        {
+            _sightRange = value;
+        } 
+    }
 
     protected TInput virtualInput;
 
@@ -91,7 +110,7 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
 
     public void HandleInput()
     {
-        if (CurrentState == CharacterState.Alive || CurrentState == CharacterState.Invincible)
+        if (IsAlive)
         {
             rb.WakeUp();
             HandleMovement();
@@ -174,7 +193,7 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
     {
         rb.position = position;
         FacingDirection = Direction.Up;
-        CurrentState = CharacterState.Alive;
+        CurrentState |= CharacterState.Alive;
     }
     public virtual void Warp(Vector2 targetPosition)
     {

@@ -13,7 +13,8 @@ public enum CharacterStatusType
     RestoreIntensityPerSecond,
     MaxMP,
     RestoreMPPerSecond,
-    MaxSpeed
+    MaxSpeed,
+    InvincibilityDuration
 }
 
 [Serializable]
@@ -24,6 +25,17 @@ public class CharacterStatus
     public float MaxMP = 20;
     public float RestoreMPPerSecond = 1;
     public float MaxSpeed = 10;
+    public float InvincibilityDuration = 0.5f;
+
+    public CharacterStatus(float maxIntensity, float restoreIntensityPerSecond, float maxMP, float restoreMPPerSecond, float maxSpeed, float invincibilityDuration)
+    {
+        MaxIntensity = maxIntensity;
+        RestoreIntensityPerSecond = restoreIntensityPerSecond;
+        MaxMP = maxMP;
+        RestoreMPPerSecond = restoreMPPerSecond;
+        MaxSpeed = maxSpeed;
+        InvincibilityDuration = invincibilityDuration;
+    }
 
     public float GetValue(CharacterStatusType type)
     {

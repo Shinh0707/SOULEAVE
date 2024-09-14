@@ -13,10 +13,8 @@ public class PlayerInput : SoulInput
 public class PlayerController : SoulController<PlayerInput>
 {
     public Dictionary<KeyCode, SkillManager> SkillBank { get; private set; }
-    public override float MaxMP { get => PlayerStatusManager.MaxMP; }
-    public override float MaxIntensity { get => PlayerStatusManager.MaxIntensity; }
-    public override float RestoreIntensityPerSecond { get => PlayerStatusManager.RestoreIntensityPerSecond; }
-    public override float RestoreMPPerSecond { get => PlayerStatusManager.RestoreMPPerSecond; }
+
+    protected override CharacterStatus Status => PlayerStatusManager.Instance.RuntimeStatus;
 
     protected override void HandleAction()
     {
@@ -52,9 +50,21 @@ public class PlayerController : SoulController<PlayerInput>
         {
             MazeGameScene.Instance.Victory();
         }
-        else if(CurrentState == CharacterState.Alive)
+        else
         {
-            base.OnCollision(collision);
+            if (collision.gameObject.TryGetComponentInParent(out SoulNPCController controller))
+            {
+                Debug.Log($"Player Collision to {controller.gameObject.name}, [{controller.Intensity}/{controller.MaxIntensity}]");
+                if (controller.Intensity/controller.MaxIntensity >= 0.9f)
+                {
+                    PlayerStatus.Instance.PlayerParameter.LP += 1;
+                    controller.ForceKill();
+                }
+            }
+            else
+            {
+                base.OnCollision(collision);
+            }
         }
     }
 

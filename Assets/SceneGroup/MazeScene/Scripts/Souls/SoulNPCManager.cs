@@ -45,13 +45,15 @@ namespace SL.Lib
         {
             GameObject soulNpcObject = Instantiate(soulNPCPrefab, position, Quaternion.identity);
             var soulNpc = soulNpcObject.GetComponent<SoulNPCController>();
-            soulNpc.InitializeStatus(new SoulNPCStatus
-            {
-                MaxMP = 1,
-                MaxIntensity = PlayerStatusManager.MaxIntensity * ((float)SLRandom.Random.NextDouble() + 0.5f),
-                RestoreMPPerSecond = 1,
-                RestoreIntensityPerSecond = PlayerStatusManager.RestoreIntensityPerSecond * ((float)SLRandom.Random.NextDouble() + 0.5f),
-            });
+            soulNpc.InitializeStatus(new CharacterStatus(
+
+                PlayerStatusManager.MaxIntensity * ((float)SLRandom.Random.NextDouble() + 0.5f),
+                PlayerStatusManager.RestoreIntensityPerSecond * ((float)SLRandom.Random.NextDouble() + 0.5f),
+                1,
+                1,
+                PlayerStatusManager.MaxSpeed * ((float)SLRandom.Random.NextDouble() + 0.5f),
+                0.5f
+            ));
             soulNpc.Initialize(position, mazeSize);
             soulNPCs.Add(soulNpc);
         }

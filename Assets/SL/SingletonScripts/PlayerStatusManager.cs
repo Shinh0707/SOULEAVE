@@ -7,6 +7,8 @@ using UnityEngine;
 public class PlayerStatusManager : SingletonMonoBehaviour<PlayerStatusManager>
 {
     private CharacterStatus runtimeStatus;
+
+    public CharacterStatus RuntimeStatus => runtimeStatus;
     private CharacterStatus defaultStatus => PlayerStatus.Instance.CharacterStatus;
     public Dictionary<KeyCode, SkillManager> GetSkills()
     {
@@ -39,4 +41,5 @@ public class PlayerStatusManager : SingletonMonoBehaviour<PlayerStatusManager>
     public static float RestoreIntensityPerSecond => Instance.GetStat(CharacterStatusType.RestoreIntensityPerSecond);
     public static float RestoreMPPerSecond => Instance.GetStat(CharacterStatusType.RestoreMPPerSecond);
     public static float MaxSpeed => Instance.GetStat(CharacterStatusType.MaxSpeed);
+    public static float InvincibilityDuration => Instance.GetStat(CharacterStatusType.InvincibilityDuration);
 }
