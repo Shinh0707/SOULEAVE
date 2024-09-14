@@ -378,6 +378,51 @@ Material:
     - _EndColor: {r: 0.45098042, g: 1, b: 0.6167005, a: 1}
     - _StartColor: {r: 0.49948615, g: 0.5647059, b: 0, a: 1}
   m_BuildTextureStacks: []
+--- !u!1 &382785780
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 382785782}
+  - component: {fileID: 382785781}
+  m_Layer: 0
+  m_Name: SoulNPCManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &382785781
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 382785780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07a826d33e6c1e94cb1030924c0b8032, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  soulNPCPrefab: {fileID: 624975479038915478, guid: 21ec801641133ff4b9739dd10cd3875a, type: 3}
+--- !u!4 &382785782
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 382785780}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -0.3086661, y: 1.2417525, z: -9.902386}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &710406919
 GameObject:
   m_ObjectHideFlags: 0
@@ -1283,6 +1328,7 @@ MonoBehaviour:
   playerPrefab: {fileID: 2163394836618579476, guid: 17142317447bb764182254390089493a, type: 3}
   goalPrefab: {fileID: 2470374563253171948, guid: 773d7169440046c4db6dc63a1bb7e7d9, type: 3}
   enemyManager: {fileID: 1282086665}
+  soulNPCManager: {fileID: 382785781}
   uiManager: {fileID: 363399476}
 --- !u!4 &1161655192
 Transform:
@@ -2996,3 +3042,4 @@ SceneRoots:
   - {fileID: 710406921}
   - {fileID: 1221512997}
   - {fileID: 8691769372931380875}
+  - {fileID: 382785782}

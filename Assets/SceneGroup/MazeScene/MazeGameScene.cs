@@ -33,11 +33,13 @@ namespace SL.Lib
         [SerializeField] private GameObject goalPrefab;
         private GameObject goal;
         [SerializeField] private EnemyManager enemyManager;
+        [SerializeField] private SoulNPCManager soulNPCManager;
         [SerializeField] private GameUIManager uiManager;
         public MazeManager MazeManager => mazeManager;
         private PlayerController playerController;
         public PlayerController Player => playerController;
         public EnemyManager EnemyManager => enemyManager;
+        public SoulNPCManager SoulNPCManager => soulNPCManager;
         public GameUIManager UIManager => uiManager;
         private float _gameStartTime;
         public float GameTime { get; private set; }
@@ -54,6 +56,7 @@ namespace SL.Lib
             playerController.Initialize(mazeManager.StartPosition, mazeSize);
             goal = Instantiate(goalPrefab, new Vector3(mazeManager.GoalPosition.x, mazeManager.GoalPosition.y, 0f), Quaternion.identity);
             enemyManager.InitializeEnemies(mazeManager.GetRandomPositions(mazeManager.firstEnemies), mazeSize);
+            soulNPCManager.InitializeSouls(mazeManager.GetRandomPositions(Mathf.Max(1,Mathf.RoundToInt(mazeManager.firstEnemies * 0.5f))), mazeSize);
             uiManager.Initialize();
             CurrentState = GameState.Playing;
             var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
@@ -77,11 +80,12 @@ namespace SL.Lib
                 {
                     Player.UpdateState();
                     EnemyManager.UpdateState();
-
+                    SoulNPCManager.UpdateState();
                 }
                 if (!CurrentFlag.HasFlag(GameFlag.FreezePlayerInput))
                 {
                     Player.HandleInput();
+                    SoulNPCManager.HandleInput();
                     if (Input.GetKeyDown(KeyCode.Escape))
                     {
                         PauseGame();

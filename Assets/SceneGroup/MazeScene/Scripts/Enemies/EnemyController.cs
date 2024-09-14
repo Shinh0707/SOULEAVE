@@ -1,3 +1,4 @@
+using Sl.Lib;
 using SL.Lib;
 using UnityEngine;
 
@@ -16,9 +17,9 @@ public abstract class EnemyController : Character<EnemyInput>
 
     private float lastThinkTime;
 
-    public virtual float EnemyDamage(PlayerController player)
+    public virtual float EnemyDamage<TInput>(SoulController<TInput> soulController) where TInput : SoulInput
     {
-        return PlayerStatusManager.MaxIntensity / 2f;
+        return soulController.MaxIntensity / 2f;
     }
 
     public override void UpdateState()
