@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5c58e9e0d3d74d44b2ab50c086538db, type: 3}
+  m_Name: SkillData
+  m_EditorClassIdentifier: 
+  skillName: Teleport
+  skillImage: {fileID: 21300000, guid: bc0adc6dcdf396f4fafd62baf76483a6, type: 3}
+  description: 
+  skillUseCostData:
+    MPCost:
+      useCost:
+        value: 0
+        type: 0
+      requiredCost:
+        value: 0
+        type: 0
+      useRequiredAsCost: 1
+    IntensityCost:
+      useCost:
+        value: 0
+        type: 0
+      requiredCost:
+        value: 0
+        type: 0
+      useRequiredAsCost: 1
+  coolDown: 10
+  singleton: 1
+  baseUpgradeCost: 0
+  maxLevel: 5
+  requirements: []
+  effects:
+  - effectUnit: {fileID: 11400000, guid: c3da8202f1b5cef43a001aec9a2d9c0b, type: 2}
+    levelMapping:
+      mappingType: 1
+      levelMap: []
+      multiplier: 1
+      offset: 0

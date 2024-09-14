@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f42914252de4f54199cdb61fffea63f, type: 3}
+  m_Name: PlayerStatus
+  m_EditorClassIdentifier: 
+  SkillBank:
+    AssignedSkills:
+    - skillName: Flash
+    - skillName: Lead
+    - skillName: Teleport
+    - skillName: 
+    AssignedFlag: 01010100
+  CharacterStatus:
+    MaxIntensity: 2
+    RestoreIntensityPerSecond: 0.5
+    MaxMP: 20
+    RestoreMPPerSecond: 1
+    MaxSpeed: 10
+    InvincibilityDuration: 0.5
+  PlayerParameter:
+    LP: 0
+    MaxSkillBank: 4
+    KeyMapping: 65000000720000007400000000000000

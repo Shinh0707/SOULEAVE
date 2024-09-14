@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 447243ab830872c41bf53554c2b26063, type: 3}
+  m_Name: PathVisualizeEffect
+  m_EditorClassIdentifier: 
+  passiveEffects: []
+  maxLevel: 10
+  showTime: 10
+  PathObject: {fileID: 7380425757203458599, guid: cc2f2749c14dfde4eb38bde08c19872d, type: 3}
