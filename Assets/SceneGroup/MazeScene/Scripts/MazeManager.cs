@@ -22,7 +22,7 @@ public class MazeManager : MonoBehaviour
     private Tensor<float> lightTensor;
     public (int rows, int cols) mazeSize { get;private set; }
     private Tensor<int> gimmickMap;
-    private Dictionary<int, (List<Indice[]>, List<Indice[]>)> startAndGoalPoints;
+    private Dictionary<int, List<((int,int), (int,int))>> startAndGoalPoints;
     private TensorLabel tensorLabel;
     private Vector2Int centerPosition;
     private Vector2 startPosition;
@@ -135,10 +135,7 @@ public class MazeManager : MonoBehaviour
         foreach (var label in tensorLabel.RouteLabels) 
         {
             LongestPathFinder LPF = new(baseMap == 0, (tensorLabel.Label == label));
-            var result = LPF.FindLongestShortestPaths();
-            var starts = result.Select(r => new Indice[] {r.Item1.Item1, r.Item1.Item2});
-            var goals = result.Select(r => new Indice[] { r.Item2.Item1, r.Item2.Item2 });
-            startAndGoalPoints[label] = (starts.ToList(), goals.ToList());
+            startAndGoalPoints[label] = LPF.FindLongestShortestPaths();
         }
     }
 
@@ -147,7 +144,8 @@ public class MazeManager : MonoBehaviour
         bool calculationComplete = false;
         Task.Run(() =>
         {
-            startAndGoalPoints = MazeArrayHelper.GetStartAndGoal(baseMap, tensorLabel);
+            var startAndGoalIndices = MazeArrayHelper.GetStartAndGoal(baseMap, tensorLabel);
+            var starts = startAndGoalIndices.ToDictionary(d => d.Key, d => d.Value); // Ç»ÇÒÇ©Ç¢Ç¢ä¥Ç∂Ç…èëÇ´ä∑Ç¶ÇÈïKóvÇ™Ç†ÇÈ
             calculationComplete = true;
         });
 
@@ -162,15 +160,10 @@ public class MazeManager : MonoBehaviour
         int region = SLRandom.SelectRandom(startAndGoalPoints.Keys.ToList());
         currentRegion = region;
         firstEnemies = Mathf.Max(1,tensorLabel.GetAreaSize(currentRegion)/12);
-        var startCandidates = startAndGoalPoints[region].Item1;
-        var goalCandidates = startAndGoalPoints[region].Item2;
-
-        var start = startCandidates[SLRandom.Random.Next(0, startCandidates.Count)];
-        var goal = goalCandidates[SLRandom.Random.Next(0, goalCandidates.Count)];
-
+        ((int, int) start, (int, int) goal) = SLRandom.SelectRandom(startAndGoalPoints[region]);
         startPosition = GetWorldPosition(start);
         goalPosition = GetWorldPosition(goal);
-        GoalTensorPosition = GetTensorPosition(goal);
+        GoalTensorPosition = goal;
 
     }
     private (int i, int j) GetTensorPosition(Indice[] indices)
