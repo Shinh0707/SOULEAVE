@@ -4,15 +4,20 @@ using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
+using SL.Lib;
 
 public class SkillTreeLayout : MonoBehaviour
 {
+    public RectTransform targetScreenCanvas;
     public GameObject skillNodePrefab;
     public RectTransform skillNodeArea;
+    public TextMeshProUGUI zoomTextMesh;
     public float nodeSpacing = 200f;
     public float levelSpacing = 300f;
-    public Color unmetRequirementColor = Color.gray;
-    public Color metRequirementColor = Color.yellow;
+    public Material LineMaterial;
+    public Gradient unmetRequirementColor;
+    public Gradient metRequirementColor;
 
     private Dictionary<SelectableSkillName, SkillNodeInfo> skillNodes = new();
     private Dictionary<SelectableSkillName, SkillNodeUI> activeNodes = new();
@@ -28,9 +33,6 @@ public class SkillTreeLayout : MonoBehaviour
     public float snapSpeed = 5f;
     public float centeringSpeed = 5f;
 
-    private bool isSnapping = false;
-    private Vector2 snapTarget;
-
     private Vector2 cameraDragStart;
     private bool isDragging = false;
     private float currentZoom = 1f;
@@ -38,8 +40,10 @@ public class SkillTreeLayout : MonoBehaviour
     private Vector2 virtualScreenCenter;
     private float screenOffset = 0f;
 
-    private Coroutine centeringCoroutine;
-
+    private SLCoroutine centeringCoroutine;
+    private SLCoroutine snapCoroutine;
+    private GameObject lineDrawer;
+    private Dictionary<(SelectableSkillName, SelectableSkillName),LineRenderer> lineRenderers = new();
     private class SkillNodeInfo
     {
         public Vector2 VirtualPosition;
@@ -51,6 +55,8 @@ public class SkillTreeLayout : MonoBehaviour
     public IEnumerator Initialize()
     {
         mainCamera = Camera.main;
+        centeringCoroutine = new();
+        snapCoroutine = new();
         var button = skillNodeArea.GetComponent<Button>();
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(HandleBackgroundClick);
@@ -69,29 +75,68 @@ public class SkillTreeLayout : MonoBehaviour
             UpdateVirtualScreenCenter();
             HandleInput();
             UpdateVisibleNodes();
-
-            if (isSnapping)
-            {
-                SnapToTarget();
-            }
         }
     }
 
     private void HandleInput()
     {
-        HandleCameraMovement();
-        HandleCameraZoom();
-
-        if (Input.GetMouseButtonUp(0))
+        if (!centeringCoroutine.IsBusy)
         {
-            if (!isSnapping && !isDragging)
+            HandleCameraMovement();
+            HandleCameraZoom();
+            if (Input.GetMouseButtonUp(0))
             {
-                TrySnapToNearestNode();
+                SnapToNearestNode();
             }
         }
     }
 
-    private void TrySnapToNearestNode()
+    private void HandleCameraMovement()
+    {
+        Vector2 movement = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")) * cameraMoveSpeed * Time.deltaTime;
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            cameraDragStart = Input.mousePosition;
+            isDragging = true;
+        }
+        else if (Input.GetMouseButtonUp(0))
+        {
+            isDragging = false;
+        }
+
+        if (isDragging)
+        {
+            Vector2 currentMousePos = Input.mousePosition;
+            movement -= (currentMousePos - cameraDragStart) * currentZoom;
+            cameraDragStart = currentMousePos;
+        }
+        if(snapCoroutine.IsBusy && (isDragging || movement.sqrMagnitude > 0.0f))
+        {
+            snapCoroutine.Stop();
+        }
+
+        virtualCameraPosition += movement;
+        virtualCameraPosition = LimitCameraPosition(virtualCameraPosition);
+    }
+
+    private void HandleCameraZoom()
+    {
+        float scrollDelta = Input.mouseScrollDelta.y;
+        if (scrollDelta != 0)
+        {
+            float prevZoom = currentZoom;
+            currentZoom -= scrollDelta * zoomSpeed;
+            currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
+
+            Vector2 mousePositionBeforeZoom = ScreenToVirtualPosition(Input.mousePosition);
+            Vector2 mousePositionAfterZoom = ScreenToVirtualPosition(Input.mousePosition);
+            virtualCameraPosition += mousePositionBeforeZoom - mousePositionAfterZoom;
+            zoomTextMesh.text = $"x{1 / currentZoom:F2}";
+        }
+    }
+
+    private void SnapToNearestNode()
     {
         SelectableSkillName nearestNode = FindNearestNode();
         if (nearestNode != null)
@@ -101,21 +146,29 @@ public class SkillTreeLayout : MonoBehaviour
 
             if (distance < snapThreshold)
             {
-                isSnapping = true;
-                snapTarget = nodePosition;
+                snapCoroutine.RunOrRestart(this, LerpMoveToTarget(nodePosition, snapSpeed));
             }
         }
     }
-
-    private void SnapToTarget()
+    public void CenterOnNode(SelectableSkillName skillName)
     {
-        virtualCameraPosition = Vector2.Lerp(virtualCameraPosition, snapTarget, snapSpeed * Time.deltaTime);
-
-        if (Vector2.Distance(virtualCameraPosition, snapTarget) < 0.1f)
+        Vector2 nodePosition = skillNodes[skillName].VirtualPosition;
+        if (snapCoroutine != null)
         {
-            virtualCameraPosition = snapTarget;
-            isSnapping = false;
+            snapCoroutine.Stop();
         }
+        isDragging = false;
+        centeringCoroutine.RunOrRestart(this, LerpMoveToTarget(nodePosition, centeringSpeed));
+    }
+
+    private IEnumerator LerpMoveToTarget(Vector2 targetPosition, float speed)
+    {
+        while (Vector2.Distance(virtualCameraPosition, targetPosition) > 0.1f)
+        {
+            virtualCameraPosition = Vector2.Lerp(virtualCameraPosition, targetPosition, speed * Time.deltaTime);
+            yield return null;
+        }
+        virtualCameraPosition = targetPosition;
     }
 
     private SelectableSkillName FindNearestNode()
@@ -139,53 +192,11 @@ public class SkillTreeLayout : MonoBehaviour
 
     private void UpdateVirtualScreenCenter()
     {
-        float visibleWidth = Screen.width - screenOffset;
-        virtualScreenCenter = new Vector2(visibleWidth / 2f, Screen.height / 2f);
+        float visibleWidth = targetScreenCanvas.sizeDelta.x - screenOffset;
+        virtualScreenCenter = new Vector2(visibleWidth / 2f, targetScreenCanvas.sizeDelta.y / 2f);
     }
 
-    private void HandleCameraMovement()
-    {
-        Vector2 movement = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")) * cameraMoveSpeed * Time.deltaTime / currentZoom;
-
-        if (Input.GetMouseButtonDown(0))
-        {
-            cameraDragStart = Input.mousePosition;
-            isDragging = true;
-            if (centeringCoroutine != null)
-            {
-                StopCoroutine(centeringCoroutine);
-            }
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            isDragging = false;
-        }
-
-        if (isDragging)
-        {
-            Vector2 currentMousePos = Input.mousePosition;
-            movement -= (currentMousePos - cameraDragStart) / currentZoom;
-            cameraDragStart = currentMousePos;
-        }
-
-        virtualCameraPosition += movement;
-        virtualCameraPosition = LimitCameraPosition(virtualCameraPosition);
-    }
-
-    private void HandleCameraZoom()
-    {
-        float scrollDelta = Input.mouseScrollDelta.y;
-        if (scrollDelta != 0)
-        {
-            float prevZoom = currentZoom;
-            currentZoom -= scrollDelta * zoomSpeed;
-            currentZoom = Mathf.Clamp(currentZoom, minZoom, maxZoom);
-
-            Vector2 mousePositionBeforeZoom = ScreenToVirtualPosition(Input.mousePosition);
-            Vector2 mousePositionAfterZoom = ScreenToVirtualPosition(Input.mousePosition);
-            virtualCameraPosition += mousePositionBeforeZoom - mousePositionAfterZoom;
-        }
-    }
+    
 
     private void HandleBackgroundClick()
     {
@@ -194,12 +205,12 @@ public class SkillTreeLayout : MonoBehaviour
 
     private Vector2 ScreenToVirtualPosition(Vector2 screenPosition)
     {
-        return (screenPosition - virtualScreenCenter) / currentZoom + virtualCameraPosition;
+        return (screenPosition - virtualScreenCenter) * currentZoom + virtualCameraPosition;
     }
 
     private Vector2 VirtualToScreenPosition(Vector2 virtualPosition)
     {
-        return (virtualPosition - virtualCameraPosition) * currentZoom + virtualScreenCenter;
+        return (virtualPosition - virtualCameraPosition) / currentZoom + virtualScreenCenter;
     }
     private Vector2 VirtualToWorldPosition(Vector2 virtualPosition)
     {
@@ -352,6 +363,7 @@ public class SkillTreeLayout : MonoBehaviour
             }
             else if (activeNodes.TryGetValue(pair.Key, out SkillNodeUI nodeUI))
             {
+                nodeUI.Initialize(pair.Key);
                 nodeUI.GetComponent<RectTransform>().anchoredPosition = screenPosition;
                 nodeUI.transform.localScale = Vector3.one / currentZoom;
             }
@@ -361,73 +373,74 @@ public class SkillTreeLayout : MonoBehaviour
 
     private void UpdateNodeConnections()
     {
+        float defaultThickness = 0.5f;
+        float currentThickness = defaultThickness / currentZoom;
+        Dictionary<SelectableSkillName, Vector2> nodeWorldPositions = new(); 
+        Vector3 GetNodeWorldPosition(SelectableSkillName skillName)
+        {
+            if(!nodeWorldPositions.TryGetValue(skillName, out Vector2 worldPos))
+            {
+                worldPos = VirtualToWorldPosition(skillNodes[skillName].VirtualPosition);
+                nodeWorldPositions[skillName] = worldPos;
+            }
+            return worldPos;
+        }
+        var reusableLines = new Queue<(SelectableSkillName,SelectableSkillName)>(lineRenderers.Keys.Where(l => !activeNodes.ContainsKey(l.Item1) && !activeNodes.ContainsKey(l.Item2)).ToArray());
+        if (lineDrawer == null)
+        {
+            lineDrawer = new GameObject("LineDrawer");
+        }
+        void AddLine(SelectableSkillName req, SelectableSkillName dep)
+        {
+            var key = (req, dep);
+            if (!lineRenderers.TryGetValue(key, out LineRenderer line))
+            {
+                var revKey = (dep, req);
+                if (!lineRenderers.TryGetValue(revKey, out line)) {
+                    if (reusableLines.Count > 0)
+                    {
+                        var reusableLine = reusableLines.Dequeue();
+                        line = lineRenderers[reusableLine];
+                        lineRenderers.Remove(reusableLine);
+                    }
+                    else
+                    {
+                        line = lineDrawer.AddComponent<LineRenderer>();
+                        line.material = LineMaterial;
+                        line.useWorldSpace = true;
+                        line.sortingOrder = -1;
+                        line.alignment = LineAlignment.TransformZ;
+                    }
+                    lineRenderers.Add(key, line);
+                }
+            }
+            UpdateLineRenderer(line, req, dep);
+        }
+        void UpdateLineRenderer(LineRenderer lineRenderer, SelectableSkillName req, SelectableSkillName dep)
+        {
+            lineRenderer.startWidth = currentThickness;
+            lineRenderer.endWidth = currentThickness;
+            lineRenderer.colorGradient = SkillTree.Instance.GetSkill(req).data.IsRequirementMet(dep)? metRequirementColor:unmetRequirementColor;
+            var positions = lineRenderer.colorGradient.InterpolateAlongGradient(GetNodeWorldPosition(req), GetNodeWorldPosition(dep));
+            lineRenderer.positionCount = positions.Length;
+            lineRenderer.SetPositions(positions);
+        }
         foreach (var pair in activeNodes)
         {
             SelectableSkillName skillName = pair.Key;
-            SkillNodeUI nodeUI = pair.Value;
-            LineRenderer lineRenderer = nodeUI.GetComponentInChildren<LineRenderer>();
-            if (lineRenderer == null)
-            {
-                var lineObj = new GameObject("Line");
-                lineObj.transform.SetParent(nodeUI.transform, true);
-                lineRenderer = lineObj.AddComponent<LineRenderer>();
-                lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-            }
-            lineRenderer.useWorldSpace = true;
-            lineRenderer.sortingOrder = -1;
-            lineRenderer.alignment = LineAlignment.TransformZ;
-            lineRenderer.startWidth = 0.5f / currentZoom;
-            lineRenderer.endWidth = 0.5f / currentZoom;
-
-            List<Vector3> linePositions = new List<Vector3>();
-            List<Color> lineColors = new List<Color>();
-            linePositions.Add(VirtualToWorldPosition(skillNodes[skillName].VirtualPosition));
-            lineColors.Add(Color.white);
-
             foreach (SelectableSkillName requiredNodeName in skillNodes[skillName].RequiredNodes)
             {
-                linePositions.Add(VirtualToWorldPosition(skillNodes[requiredNodeName].VirtualPosition));
-                if (activeNodes.TryGetValue(requiredNodeName, out SkillNodeUI requiredNodeUI))
-                {
-                    bool requirementMet = SkillTree.Instance.GetSkill(skillName).data.IsRequirementMet(requiredNodeName);
-                    lineColors.Add(requirementMet ? metRequirementColor : unmetRequirementColor);
-                }
+                AddLine(skillName, requiredNodeName);
             }
-
-            lineRenderer.positionCount = linePositions.Count;
-            lineRenderer.SetPositions(linePositions.ToArray());
-
-            Gradient gradient = new Gradient();
-            gradient.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(lineColors[0], 0.0f), new GradientColorKey(lineColors[lineColors.Count - 1], 1.0f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(1.0f, 0.0f), new GradientAlphaKey(1.0f, 1.0f) }
-            );
-            lineRenderer.colorGradient = gradient;
+            foreach (SelectableSkillName dependedNodeName in skillNodes[skillName].DependentNodes)
+            {
+                AddLine(dependedNodeName, skillName);
+            }
         }
-    }
-    public void CenterOnNode(SelectableSkillName skillName)
-    {
-        Vector2 nodePosition = skillNodes[skillName].VirtualPosition;
-        if (centeringCoroutine != null)
-        {
-            StopCoroutine(centeringCoroutine);
-        }
-        centeringCoroutine = StartCoroutine(SmoothCenterOnNode(nodePosition));
-    }
-
-    private IEnumerator SmoothCenterOnNode(Vector2 targetPosition)
-    {
-        while (Vector2.Distance(virtualCameraPosition, targetPosition) > 0.1f)
-        {
-            virtualCameraPosition = Vector2.Lerp(virtualCameraPosition, targetPosition, centeringSpeed * Time.deltaTime);
-            yield return null;
-        }
-
-        virtualCameraPosition = targetPosition;
     }
     private Rect GetViewportRect()
     {
-        return new Rect(0, 0, Screen.width, Screen.height);
+        return new Rect(0, 0, targetScreenCanvas.sizeDelta.x, targetScreenCanvas.sizeDelta.y);
     }
 
     private Vector2 LimitCameraPosition(Vector2 position)
@@ -435,8 +448,8 @@ public class SkillTreeLayout : MonoBehaviour
         Vector2 minPosition = skillNodes.Values.Aggregate((a, b) => a.VirtualPosition.x < b.VirtualPosition.x ? a : b).VirtualPosition;
         Vector2 maxPosition = skillNodes.Values.Aggregate((a, b) => a.VirtualPosition.x > b.VirtualPosition.x ? a : b).VirtualPosition;
 
-        float aspectRatio = (float)(Screen.width) / Screen.height;
-        float verticalSize = Screen.height / (2f * currentZoom);
+        float aspectRatio = (float)(targetScreenCanvas.sizeDelta.x) / targetScreenCanvas.sizeDelta.y;
+        float verticalSize = targetScreenCanvas.sizeDelta.y / (2f * currentZoom);
         float horizontalSize = verticalSize * aspectRatio;
 
         minPosition -= new Vector2(horizontalSize + boundaryPadding, verticalSize + boundaryPadding);

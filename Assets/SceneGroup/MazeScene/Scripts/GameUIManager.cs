@@ -85,6 +85,11 @@ public class GameUIManager : MonoBehaviour
         gameplayUI.SetActive(false);
         gameOverScreen.SetActive(true);
     }
+    public void HideGameOverScreen()
+    {
+        gameplayUI.SetActive(true);
+        gameOverScreen.SetActive(false);
+    }
 
     public void ShowVictoryScreen()
     {

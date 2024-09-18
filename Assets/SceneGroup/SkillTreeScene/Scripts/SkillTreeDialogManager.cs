@@ -149,12 +149,14 @@ public class SkillTreeDialogManager : MonoBehaviour
         {
             skillKeySelection.Open(skillName);
         }
+        SkillTreeScene.Instance.UpdateStatusDrawer();
         UpdateActionButton(skillName);
     }
 
     private void RemoveSkill(SelectableSkillName skillName)
     {
         PlayerStatus.Instance.SkillBank.RemoveSkill(skillName);
+        SkillTreeScene.Instance.UpdateStatusDrawer();
         UpdateActionButton(skillName);
     }
 
@@ -164,6 +166,7 @@ public class SkillTreeDialogManager : MonoBehaviour
         if (SkillTree.Instance.UpgradeSkill(skillName, ref availableLP))
         {
             PlayerStatus.Instance.PlayerParameter.LP = availableLP;
+            SkillTreeScene.Instance.UpdateStatusDrawer();
             UpdateActionButton(skillName);
         }
     }

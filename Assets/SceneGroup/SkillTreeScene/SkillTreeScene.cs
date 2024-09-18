@@ -2,6 +2,7 @@ using SL.Lib;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public enum SkillTreeSceneState
 {
@@ -14,8 +15,15 @@ public class SkillTreeScene : SceneInitializer<SkillTreeScene>
 {
     [SerializeField] private SkillTreeLayout skillTreeLayout;
     [SerializeField] private SkillTreeDialogManager dialogManager;
+    [SerializeField] private BasicStatusDrawer statusDrawer;
+    [SerializeField] private Button backToButton;
     public SkillTreeLayout SkillTreeLayout => skillTreeLayout;
     public SkillTreeDialogManager DialogManager => dialogManager;
+
+    public void UpdateStatusDrawer()
+    {
+        statusDrawer.UpdateValues();
+    }
 
     public SkillTreeSceneState State { get; set; }
 
@@ -26,6 +34,8 @@ public class SkillTreeScene : SceneInitializer<SkillTreeScene>
         StartCoroutine(Loading());
         StartCoroutine(skillTreeLayout.Initialize());
         StartCoroutine(dialogManager.Initialize());
+        backToButton.onClick.RemoveAllListeners();
+        backToButton.onClick.AddListener(() => SceneManager.Instance.TransitionToScene(Scenes.Home));
     }
 
     private IEnumerator Loading()

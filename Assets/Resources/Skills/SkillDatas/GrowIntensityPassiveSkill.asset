@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a5c58e9e0d3d74d44b2ab50c086538db, type: 3}
-  m_Name: SkillData
+  m_Name: GrowIntensityPassiveSkill
   m_EditorClassIdentifier: 
-  skillName: Teleport
-  skillImage: {fileID: 21300000, guid: bc0adc6dcdf396f4fafd62baf76483a6, type: 3}
+  skillName: GrowthIntensity
+  skillImage: {fileID: 0}
   description: 
   skillUseCostData:
     MPCost:
@@ -32,13 +32,13 @@ MonoBehaviour:
         value: 0
         type: 0
       useRequiredAsCost: 1
-  coolDown: 10
+  coolDown: 0
   singleton: 1
-  baseUpgradeCost: 0
+  baseUpgradeCost: 1
   maxLevel: 5
   requirements: []
   effects:
-  - effectUnit: {fileID: 11400000, guid: c3da8202f1b5cef43a001aec9a2d9c0b, type: 2}
+  - effectUnit: {fileID: 11400000, guid: c86084e877181e74383b31324c2c6b71, type: 2}
     levelMapping:
       mappingType: 1
       levelMap: []

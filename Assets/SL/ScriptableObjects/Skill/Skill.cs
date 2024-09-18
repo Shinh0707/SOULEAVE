@@ -46,7 +46,7 @@ public class Skill
     {
         if (isActivated)
         {
-            data.ApplyPassiveEffects(ref status, baseStatus);
+            data.ApplyPassiveEffects(ref status, currentLevel, baseStatus);
         }
     }
 
@@ -54,7 +54,7 @@ public class Skill
     {
         if (isActivated)
         {
-            data.ApplyMultiplicativeEffects(ref status, baseStatus);
+            data.ApplyMultiplicativeEffects(ref status, currentLevel, baseStatus);
         }
     }
 
@@ -62,7 +62,7 @@ public class Skill
     {
         if (isActivated)
         {
-            data.ApplyConstantEffects(ref status, baseStatus);
+            data.ApplyConstantEffects(ref status, currentLevel, baseStatus);
         }
     }
 

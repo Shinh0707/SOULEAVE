@@ -38,13 +38,6 @@ public class SkillBank
         AssignedFlag[bankNo] = true;
     }
 
-    public bool CanAssign(int bankNo, SelectableSkillName targetSkillName)
-    {
-        if (bankNo < 0 || bankNo >= AssignedSkills.Length) return false;
-        if (Array.IndexOf(AssignedSkills, targetSkillName) != -1) return true;
-        return Assigned < PlayerStatus.Instance.PlayerParameter.MaxSkillBank;
-    }
-
     public int GetSkillBankNo(SelectableSkillName skillName)
     {
         return Array.IndexOf(AssignedSkills, skillName);
@@ -92,10 +85,18 @@ public class SkillBank
 
     public bool RemoveSkill(SelectableSkillName targetSkillName)
     {
-        int index = Array.IndexOf(AssignedSkills, targetSkillName);
-        if (index != -1 && AssignedFlag[index])
+        if (targetSkillName.Skill.data.HasManualEffects())
         {
-            return RemoveSkill(index);
+            int index = Array.IndexOf(AssignedSkills, targetSkillName);
+            if (index != -1 && AssignedFlag[index])
+            {
+                return RemoveSkill(index);
+            }
+        }
+        else if(targetSkillName.Skill.isActivated)
+        {
+            SkillTree.Instance.SetSkillActivate(targetSkillName, false);
+            return true;
         }
         return false;
     }

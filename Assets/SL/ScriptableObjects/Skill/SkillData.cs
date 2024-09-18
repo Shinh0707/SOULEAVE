@@ -26,7 +26,7 @@ public class LevelMapping
         switch (mappingType)
         {
             case LevelMappingType.Mapping:
-                var mapping = levelMap.FirstOrDefault(m => m.x == skillLevel);
+                var mapping = levelMap.Where(m => m.x <= skillLevel).OrderBy(m => -m.x).FirstOrDefault();
                 return mapping != default ? mapping.y : 1;
             case LevelMappingType.Linear:
                 return Mathf.RoundToInt((skillLevel * multiplier) + offset);
@@ -174,27 +174,27 @@ public class SkillData : ScriptableObject
             skillUseCostData.ReturnCost(player);
         }
     }
-    public void ApplyPassiveEffects(ref CharacterStatus status, CharacterStatus baseStatus)
+    public void ApplyPassiveEffects(ref CharacterStatus status, int skillLevel, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
-            effect.effectUnit.ApplyPassiveEffects(ref status, baseStatus);
+            effect.effectUnit.ApplyPassiveEffects(ref status, skillLevel, baseStatus);
         }
     }
 
-    public void ApplyMultiplicativeEffects(ref CharacterStatus status, CharacterStatus baseStatus)
+    public void ApplyMultiplicativeEffects(ref CharacterStatus status, int skillLevel, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
-            effect.effectUnit.ApplyMultiplicativeEffects(ref status, baseStatus);
+            effect.effectUnit.ApplyMultiplicativeEffects(ref status, skillLevel, baseStatus);
         }
     }
 
-    public void ApplyConstantEffects(ref CharacterStatus status, CharacterStatus baseStatus)
+    public void ApplyConstantEffects(ref CharacterStatus status, int skillLevel, CharacterStatus baseStatus)
     {
         foreach (var effect in effects)
         {
-            effect.effectUnit.ApplyConstantEffects(ref status, baseStatus);
+            effect.effectUnit.ApplyConstantEffects(ref status, skillLevel, baseStatus);
         }
     }
 

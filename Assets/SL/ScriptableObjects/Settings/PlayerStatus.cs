@@ -46,12 +46,14 @@ public class CharacterStatus
             CharacterStatusType.MaxMP => MaxMP,
             CharacterStatusType.RestoreMPPerSecond => RestoreMPPerSecond,
             CharacterStatusType.MaxSpeed => MaxSpeed,
+            CharacterStatusType.InvincibilityDuration => InvincibilityDuration,
             _ => throw new ArgumentException("Invalid status type")
         };
     }
 
     public void SetValue(CharacterStatusType type, float value)
     {
+        Debug.Log($"SetValue {type}: {GetValue(type)} => {value}");
         switch (type)
         {
             case CharacterStatusType.MaxIntensity: MaxIntensity = value; break;
@@ -59,6 +61,7 @@ public class CharacterStatus
             case CharacterStatusType.MaxMP: MaxMP = value; break;
             case CharacterStatusType.RestoreMPPerSecond: RestoreMPPerSecond = value; break;
             case CharacterStatusType.MaxSpeed: MaxSpeed = value; break;
+            case CharacterStatusType.InvincibilityDuration: InvincibilityDuration = value; break;
             default: throw new ArgumentException("Invalid status type");
         }
     }

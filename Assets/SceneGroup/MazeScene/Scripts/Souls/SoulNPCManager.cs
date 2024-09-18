@@ -8,8 +8,21 @@ namespace SL.Lib
     public class SoulNPCManager : DynamicObject
     {
         [SerializeField] private GameObject soulNPCPrefab;
+        private int totalSouls;
+        private int currentSouls;
+        private int eatenSouls;
+        public int TotalSouls => totalSouls;
+        public int EatenSouls => eatenSouls;
+        public int CurrentSouls => currentSouls;
+        public int SavedSouls => totalSouls - currentSouls - eatenSouls;
         private List<SoulNPCController> soulNPCs = new();
 
+        public void Initialize()
+        {
+            totalSouls = 0;
+            currentSouls = 0;
+            eatenSouls = 0;
+        }
         public override void UpdateState()
         {
             foreach (var soulNpc in soulNPCs)
@@ -21,6 +34,11 @@ namespace SL.Lib
             var maxSouls = delSouls.Count();
             for(int i = 0;i < maxSouls; i++)
             {
+                currentSouls--;
+                if (!delSouls[i].EatenByPlayer)
+                {
+                    eatenSouls++;
+                }
                 Destroy(delSouls[i].gameObject);
                 delSouls[i] = null;
             }
@@ -56,18 +74,14 @@ namespace SL.Lib
             ));
             soulNpc.Initialize(position, mazeSize);
             soulNPCs.Add(soulNpc);
+            totalSouls++;
+            currentSouls++;
         }
 
         private void SpawnNewSoul()
         {
             Vector2 spawnPosition = MazeGameScene.Instance.MazeManager.GetRandomPosition();
             SpawnSoul(spawnPosition, MazeGameScene.Instance.MazeManager.mazeSize);
-        }
-
-        public void RemoveSoul(SoulNPCController soulNpc)
-        {
-            soulNPCs.Remove(soulNpc);
-            Destroy(soulNpc.gameObject);
         }
     }
 }

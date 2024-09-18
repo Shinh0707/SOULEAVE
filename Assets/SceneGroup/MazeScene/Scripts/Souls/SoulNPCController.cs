@@ -18,9 +18,12 @@ namespace SL.Lib {
         private CharacterStatus _status;
         protected override CharacterStatus Status => _status;
 
+        private bool eatenByPlayer = false;
+        public bool EatenByPlayer => eatenByPlayer;
         public void InitializeStatus(CharacterStatus status)
         {
             _status = status;
+            eatenByPlayer = false;
         }
 
         protected override void HandleMovement()
@@ -43,6 +46,7 @@ namespace SL.Lib {
             float remain = Intensity;
             Intensity = 0f;
             CurrentState -= CharacterState.Alive;
+            eatenByPlayer = true;
             return remain;
         }
     }

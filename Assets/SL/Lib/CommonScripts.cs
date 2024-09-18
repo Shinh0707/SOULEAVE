@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
 using System.Text;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -45,6 +48,164 @@ namespace SL.Lib
             }
 
             return -1;  // 見つからなかった場合
+        }
+    }
+
+    public static class VectorExtensions 
+    {
+        /// <summary>
+        /// 2つの座標間を線形補間して指定された数の頂点を生成します。
+        /// </summary>
+        /// <param name="start">開始座標</param>
+        /// <param name="end">終了座標</param>
+        /// <param name="vertexCount">生成する頂点の数（2以上）</param>
+        /// <returns>線形補間された頂点の配列</returns>
+        public static Vector3[] GenerateInterpolatedVertices(Vector3 start, Vector3 end, int vertexCount)
+        {
+            if (vertexCount < 2)
+            {
+                Debug.LogError("Vertex count must be at least 2.");
+                return new Vector3[] { start, end };
+            }
+
+            Vector3[] vertices = new Vector3[vertexCount];
+            vertices[0] = start;
+            vertices[vertexCount - 1] = end;
+
+            for (int i = 1; i < vertexCount - 1; i++)
+            {
+                float t = (float)i / (vertexCount - 1);
+                vertices[i] = Vector3.Lerp(start, end, t);
+            }
+
+            return vertices;
+        }
+    }
+
+    public static class GradientExtensions
+    {
+        public static int CalculateMinimumKeys(this Gradient gradient, float timeThreshold = 0.001f, float startTime = 0.0f, float endTime = 1.0f)
+        {
+            if (gradient == null || timeThreshold <= 0 || startTime >= endTime)
+            {
+                Debug.LogError("Invalid input parameters.");
+                return 0;
+            }
+
+            // Gradientのキーを時間でソートし、指定範囲内のキーのみを抽出
+            var allKeys = new List<GradientKey>();
+            allKeys.AddRange(gradient.alphaKeys.Select(k => new GradientKey(k.time, k.alpha, true)));
+            allKeys.AddRange(gradient.colorKeys.Select(k => new GradientKey(k.time, k.color, false)));
+            allKeys = allKeys.Where(k => k.time >= startTime && k.time <= endTime).OrderBy(k => k.time).ToList();
+
+            // 開始時間と終了時間のキーを追加（既存のキーと重複しない場合）
+            if (allKeys.Count == 0 || allKeys[0].time > startTime)
+                allKeys.Insert(0, new GradientKey(startTime, gradient.Evaluate(startTime), false));
+            if (allKeys[allKeys.Count - 1].time < endTime)
+                allKeys.Add(new GradientKey(endTime, gradient.Evaluate(endTime), false));
+
+            int minKeyCount = 0;
+            float lastKeyTime = float.MinValue;
+
+            foreach (var key in allKeys)
+            {
+                if (key.time - lastKeyTime > timeThreshold)
+                {
+                    minKeyCount++;
+                    lastKeyTime = key.time;
+                }
+            }
+
+            return minKeyCount;
+        }
+
+        private struct GradientKey
+        {
+            public float time;
+            public Color color;
+            public bool isAlpha;
+
+            public GradientKey(float time, float alpha, bool isAlpha)
+            {
+                this.time = time;
+                this.color = new Color(0, 0, 0, alpha);
+                this.isAlpha = isAlpha;
+            }
+
+            public GradientKey(float time, Color color, bool isAlpha)
+            {
+                this.time = time;
+                this.color = color;
+                this.isAlpha = isAlpha;
+            }
+        }
+        public static Vector3[] InterpolateAlongGradient(this Gradient gradient, Vector3 startPoint, Vector3 endPoint, float startTime = 0f, float endTime = 1f)
+        {
+            if (gradient == null || startTime >= endTime)
+            {
+                Debug.LogError("Invalid input parameters.");
+                return new Vector3[] { startPoint, endPoint };
+            }
+
+            // Gradientのキーを時間でソートし、指定範囲内のキーのみを抽出
+            var allKeys = new List<float>();
+            allKeys.AddRange(gradient.alphaKeys.Select(k => k.time));
+            allKeys.AddRange(gradient.colorKeys.Select(k => k.time));
+            allKeys = allKeys.Where(t => t >= startTime && t <= endTime).Distinct().OrderBy(t => t).ToList();
+
+            // 開始時間と終了時間を追加（既存のキーと重複しない場合）
+            if (allKeys.Count == 0 || allKeys[0] > startTime)
+                allKeys.Insert(0, startTime);
+            if (allKeys[allKeys.Count - 1] < endTime)
+                allKeys.Add(endTime);
+
+            // キーに基づいて頂点を生成
+            Vector3[] vertices = new Vector3[allKeys.Count];
+            for (int i = 0; i < allKeys.Count; i++)
+            {
+                float normalizedTime = Mathf.InverseLerp(startTime, endTime, allKeys[i]);
+                vertices[i] = Vector3.Lerp(startPoint, endPoint, normalizedTime);
+            }
+
+            return vertices;
+        }
+
+        // オプション: カラー情報も含めた結果を返すバージョン
+        public static (Vector3[] positions, Color[] colors) InterpolateAlongGradientWithColors(this Gradient gradient, Vector3 startPoint, Vector3 endPoint, float startTime = 0f, float endTime = 1f)
+        {
+            Vector3[] positions = InterpolateAlongGradient(gradient, startPoint, endPoint, startTime, endTime);
+            Color[] colors = new Color[positions.Length];
+
+            for (int i = 0; i < positions.Length; i++)
+            {
+                float time = Mathf.Lerp(startTime, endTime, (float)i / (positions.Length - 1));
+                colors[i] = gradient.Evaluate(time);
+            }
+
+            return (positions, colors);
+        }
+    }
+    public static class DeepCopyUtility
+    {
+        public static T DeepCopy<T>(this T obj)
+        {
+            if (!typeof(T).IsSerializable)
+            {
+                throw new ArgumentException("The type must be serializable.", nameof(obj));
+            }
+
+            if (ReferenceEquals(obj, null))
+            {
+                return default;
+            }
+
+            using (MemoryStream stream = new MemoryStream())
+            {
+                IFormatter formatter = new BinaryFormatter();
+                formatter.Serialize(stream, obj);
+                stream.Seek(0, SeekOrigin.Begin);
+                return (T)formatter.Deserialize(stream);
+            }
         }
     }
 
@@ -318,8 +479,6 @@ namespace SL.Lib
             hashField.SetValue(shadowCaster, hash);
         }
     }
-
-
     public static class AdvancedRomanNumeralConverter
     {
         private static readonly Dictionary<int, string> romanNumerals = new Dictionary<int, string>

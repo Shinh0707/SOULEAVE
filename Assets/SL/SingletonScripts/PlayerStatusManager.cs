@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-
+using SL.Lib;
 public class PlayerStatusManager : SingletonMonoBehaviour<PlayerStatusManager>
 {
     private CharacterStatus runtimeStatus;
@@ -17,18 +17,19 @@ public class PlayerStatusManager : SingletonMonoBehaviour<PlayerStatusManager>
 
     public void ResetRuntimeStatus()
     {
-        runtimeStatus = defaultStatus;
-        foreach (var skillManager in GetSkills().Values)
+        runtimeStatus = defaultStatus.DeepCopy();
+        var passiveSkills = SkillTree.Instance.Skills.Where(skill => skill.isActivated);
+        foreach (var skill in passiveSkills)
         {
-            skillManager.Skill.ApplyPassiveEffects(ref runtimeStatus, defaultStatus);
+            skill.ApplyPassiveEffects(ref runtimeStatus, defaultStatus);
         }
-        foreach (var skillManager in GetSkills().Values)
+        foreach (var skill in passiveSkills)
         {
-            skillManager.Skill.ApplyMultiplicativeEffects(ref runtimeStatus, defaultStatus);
+            skill.ApplyMultiplicativeEffects(ref runtimeStatus, defaultStatus);
         }
-        foreach (var skillManager in GetSkills().Values)
+        foreach (var skill in passiveSkills)
         {
-            skillManager.Skill.ApplyConstantEffects(ref runtimeStatus, defaultStatus);
+            skill.ApplyConstantEffects(ref runtimeStatus, defaultStatus);
         }
     }
     public float GetStat(CharacterStatusType statType)

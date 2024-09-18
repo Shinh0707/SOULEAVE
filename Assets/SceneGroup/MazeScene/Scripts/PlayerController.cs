@@ -57,7 +57,7 @@ public class PlayerController : SoulController<PlayerInput>
                 Debug.Log($"Player Collision to {controller.gameObject.name}, [{controller.Intensity}/{controller.MaxIntensity}]");
                 if (controller.Intensity/controller.MaxIntensity >= 0.9f)
                 {
-                    PlayerStatus.Instance.PlayerParameter.LP += 1;
+                    MazeGameScene.Instance.MazeGameMemory.CollectedLP++;
                     controller.ForceKill();
                 }
             }

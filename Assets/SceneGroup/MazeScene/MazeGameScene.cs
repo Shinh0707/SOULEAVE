@@ -4,6 +4,26 @@ using System;
 using System.Collections.Generic;
 namespace SL.Lib
 {
+    [Serializable]
+    public class MazeGameMemory
+    {
+        public int CollectedLP = 0;
+        public int RespawnCount = 0;
+
+        public int TotalCollectedLP => CollectedLP + PlayerStatus.Instance.PlayerParameter.LP;
+
+        public void AssignMemory()
+        {
+            PlayerStatus.Instance.PlayerParameter.LP = Mathf.Max(0, TotalCollectedLP);
+        }
+        public int RespwanCost => 1 + RespawnCount;
+        public bool CanRespawn => TotalCollectedLP >= RespwanCost;
+        public void Respawn()
+        {
+            CollectedLP -= RespwanCost;
+            RespawnCount++;
+        }
+    }
     public class MazeGameScene : SceneInitializer<MazeGameScene>
     {
         public enum GameState
@@ -35,6 +55,7 @@ namespace SL.Lib
         [SerializeField] private EnemyManager enemyManager;
         [SerializeField] private SoulNPCManager soulNPCManager;
         [SerializeField] private GameUIManager uiManager;
+        public MazeGameMemory MazeGameMemory = new();
         public MazeManager MazeManager => mazeManager;
         private PlayerController playerController;
         public PlayerController Player => playerController;
@@ -44,9 +65,12 @@ namespace SL.Lib
         private float _gameStartTime;
         public float GameTime { get; private set; }
         public float GameStartTime => _gameStartTime;
+
+
         protected override IEnumerator InitializeScene()
         {
             CurrentState = GameState.Setup;
+            MazeGameMemory = new();
             yield return mazeManager.GenerateMazeAsync();
             _gameStartTime = Time.time;
             PlayerStatusManager.Instance.ResetRuntimeStatus();
@@ -56,14 +80,15 @@ namespace SL.Lib
             playerController.Initialize(mazeManager.StartPosition, mazeSize);
             goal = Instantiate(goalPrefab, new Vector3(mazeManager.GoalPosition.x, mazeManager.GoalPosition.y, 0f), Quaternion.identity);
             enemyManager.InitializeEnemies(mazeManager.GetRandomPositions(mazeManager.firstEnemies), mazeSize);
+            soulNPCManager.Initialize();
             soulNPCManager.InitializeSouls(mazeManager.GetRandomPositions(Mathf.Max(1,Mathf.RoundToInt(mazeManager.firstEnemies * 0.5f))), mazeSize);
             uiManager.Initialize();
-            CurrentState = GameState.Playing;
             var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
             cameraFollow.Initialize(playerController.character.transform);
             cameraFollow.follow = true;
             GameTime = 0f;
-
+            yield return new WaitForSeconds(2f); // レンダリング待ち
+            CurrentState = GameState.Playing;
             // TODO: ゲーム開始時のサウンドを再生する処理を追加
         }
 
@@ -159,6 +184,18 @@ namespace SL.Lib
             }
         }
 
+        public void Respawn()
+        {
+            if(playerController.IsDead && MazeGameMemory.CanRespawn)
+            {
+                UIManager.HideGameOverScreen();
+                MazeGameMemory.Respawn();
+                playerController.Reinitialize();
+                CurrentState = GameState.Playing;
+                playerController.CurrentState |= CharacterState.Alive;
+            }
+        }
+
         public void Victory()
         {
             CurrentState = GameState.Victory;
@@ -179,12 +216,9 @@ namespace SL.Lib
 
         public void QuitToMainMenu()
         {
-            // メインメニューへ戻るロジック
-            // 例: SceneManager.LoadScene("MainMenu");
-
-            // TODO: 現在のゲーム状態を保存する処理を追加
-            // TODO: シーン遷移のアニメーションを追加
-            // TODO: バックグラウンドミュージックを停止または変更する処理を追加
+            UIManager.HideGameOverScreen();
+            MazeGameMemory.AssignMemory();
+            SceneManager.Instance.TransitionToScene(Scenes.Home);
         }
 
         // TODO: ゲームの難易度を変更する機能を追加

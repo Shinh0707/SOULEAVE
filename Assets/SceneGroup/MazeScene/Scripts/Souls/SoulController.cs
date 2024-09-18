@@ -156,6 +156,12 @@ namespace Sl.Lib
             }
             UpdateSightRange();
         }
+        public void Reinitialize()
+        {
+            MP = MaxMP;
+            Intensity = MaxIntensity;
+            UpdateSightRange();
+        }
 
         protected virtual void UpdateSightRange()
         {
