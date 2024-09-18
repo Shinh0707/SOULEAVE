@@ -25,6 +25,6 @@ public class GameOverScreen : MonoBehaviour
             RespawnButton.gameObject.SetActive(false);
         }
         GiveUpButton.onClick.RemoveAllListeners();
-        GiveUpButton.onClick.AddListener(() => MazeGameScene.Instance.QuitToMainMenu());
+        GiveUpButton.onClick.AddListener(() => MazeGameScene.Instance.QuitToMainMenu(false));
     }
 }

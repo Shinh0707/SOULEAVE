@@ -114,6 +114,6 @@ public class GameUIManager : MonoBehaviour
 
     public void OnQuitButtonClicked()
     {
-        MazeGameScene.Instance.QuitToMainMenu();
+        //MazeGameScene.Instance.QuitToMainMenu();
     }
 }

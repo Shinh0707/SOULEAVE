@@ -165,7 +165,7 @@ namespace Sl.Lib
 
         protected virtual void UpdateSightRange()
         {
-            SightRange = Intensity + ExtraIntensity;
+            SightRange = Mathf.Sqrt(Intensity + ExtraIntensity);
             targetLight.BaseRange = SightRange;
             targetLight.BaseIntensity = Intensity + ExtraIntensity;
             wispParticle.transform.localScale = Vector3.one * Intensity / MaxIntensity;

@@ -214,10 +214,16 @@ namespace SL.Lib
             // TODO: 敵の位置をリセットする処理を追加
         }
 
-        public void QuitToMainMenu()
+        public void QuitToMainMenu(bool Success)
         {
-            UIManager.HideGameOverScreen();
-            MazeGameMemory.AssignMemory();
+            if (!Success)
+            {
+                UIManager.HideGameOverScreen();
+            }
+            else
+            {
+                MazeGameMemory.AssignMemory();
+            }
             SceneManager.Instance.TransitionToScene(Scenes.Home);
         }
 

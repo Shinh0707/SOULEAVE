@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: GrowIntensityPassiveSkill
   m_EditorClassIdentifier: 
   skillName: GrowthIntensity
-  skillImage: {fileID: 0}
+  skillImage: {fileID: 21300000, guid: 4fdd6eaaa366bf444a43b531a1e81668, type: 3}
   description: 
   skillUseCostData:
     MPCost:

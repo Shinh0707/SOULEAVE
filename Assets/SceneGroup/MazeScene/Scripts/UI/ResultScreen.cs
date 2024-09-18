@@ -20,6 +20,6 @@ public class ResultScreen : MonoBehaviour
         EatenSoulsText.text = $"{MazeGameScene.Instance.SoulNPCManager.EatenSouls}";
         AbandonedSoulsText.text = $"{MazeGameScene.Instance.SoulNPCManager.CurrentSouls}";
         ContinueButton.onClick.RemoveAllListeners();
-        ContinueButton.onClick.AddListener(() => MazeGameScene.Instance.QuitToMainMenu());
+        ContinueButton.onClick.AddListener(() => MazeGameScene.Instance.QuitToMainMenu(true));
     }
 }

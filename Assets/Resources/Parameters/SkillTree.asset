@@ -14,16 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Skills:
   - data: {fileID: 11400000, guid: 008416626262e324a98f44880daeb3f9, type: 2}
-    currentLevel: 2
-    isUnlocked: 1
+    currentLevel: 0
+    isUnlocked: 0
     _isActivated: 0
   - data: {fileID: 11400000, guid: e6465cc3ef3441d48b52741394a415cf, type: 2}
-    currentLevel: 2
-    isUnlocked: 1
+    currentLevel: 0
+    isUnlocked: 0
     _isActivated: 0
   - data: {fileID: 11400000, guid: e42459b41bbc37c4aa4ef7faea1352e6, type: 2}
-    currentLevel: 1
-    isUnlocked: 1
+    currentLevel: 0
+    isUnlocked: 0
     _isActivated: 0
   - data: {fileID: 11400000, guid: b1254ff0c6194f04bb665310466bdfab, type: 2}
     currentLevel: 0
