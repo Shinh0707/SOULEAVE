@@ -12,18 +12,20 @@ namespace SL.Lib
         /// <typeparam name="TCond">The type of the condition tensor.</typeparam>
         /// <param name="condition">The condition tensor.</param>
         /// <returns>A list of indices where the condition is true.</returns>
-        public List<Indice[]> ArgWhere<TCond>(Tensor<TCond> condition) where TCond : IComparable<TCond>
+        public List<int[]> ArgWhere<TCond>(Tensor<TCond> condition) where TCond : IComparable<TCond>
         {
             if (!MatchShape(condition.Shape))
             {
                 throw new ArgumentException("Condition tensor must have the same shape as this tensor.");
             }
-            List<Indice[]> indices = new();
+            List<int[]> indices = new();
             for (int i = 0; i < _data.Length; i++)
             {
                 if (Convert.ToBoolean(condition._data[i]))
                 {
-                    indices.Add(condition.GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    indices.Add(index);
                 }
             }
             return indices;
@@ -33,14 +35,16 @@ namespace SL.Lib
         /// Returns the indices where the tensor elements are true.
         /// </summary>
         /// <returns>A list of indices where the elements are true.</returns>
-        public List<Indice[]> ArgWhere()
+        public List<int[]> ArgWhere()
         {
-            List<Indice[]> indices = new List<Indice[]>();
+            List<int[]> indices = new();
             for (int i = 0; i < _data.Length; i++)
             {
                 if (Convert.ToBoolean(_data[i]))
                 {
-                    indices.Add(GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    indices.Add(index);
                 }
             }
             return indices;
@@ -50,9 +54,9 @@ namespace SL.Lib
         /// Finds all indices of maximum values in the tensor.
         /// </summary>
         /// <returns>A list of indices with maximum values.</returns>
-        public List<Indice[]> ArgsMax()
+        public List<int[]> ArgsMax()
         {
-            List<Indice[]> maxIndices = new List<Indice[]>();
+            List<int[]> maxIndices = new List<int[]>();
             T maxValue = _data[0];
             for (int i = 0; i < _data.Length; i++)
             {
@@ -60,16 +64,21 @@ namespace SL.Lib
                 if (compResult > 0)
                 {
                     maxIndices.Clear();
-                    maxIndices.Add(GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    maxIndices.Add(index);
                     maxValue = _data[i];
                 }
                 else if (compResult == 0)
                 {
-                    maxIndices.Add(GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    maxIndices.Add(index);
                 }
             }
             return maxIndices;
         }
+
         public Tensor<bool> MaxMask(Tensor<bool> anotherMask) => (this == this[anotherMask].Max()) & anotherMask;
         public Tensor<bool> MaxMask() => this == Max();
 
@@ -78,7 +87,7 @@ namespace SL.Lib
         /// </summary>
         /// <param name="selectMode">The mode for selecting the index when multiple maximum values exist.</param>
         /// <returns>The index of the maximum value.</returns>
-        public Indice[] ArgMax(ArgSelector.ArgSelect selectMode = ArgSelector.ArgSelect.FIRST)
+        public int[] ArgMax(ArgSelector.ArgSelect selectMode = ArgSelector.ArgSelect.FIRST)
         {
             var argsMax = ArgsMax();
             return ArgSelector.Select(argsMax, selectMode);
@@ -88,9 +97,9 @@ namespace SL.Lib
         /// Finds all indices of minimum values in the tensor.
         /// </summary>
         /// <returns>A list of indices with minimum values.</returns>
-        public List<Indice[]> ArgsMin()
+        public List<int[]> ArgsMin()
         {
-            List<Indice[]> minIndices = new List<Indice[]>();
+            List<int[]> minIndices = new List<int[]>();
             T minValue = _data[0];
             for (int i = 0; i < _data.Length; i++)
             {
@@ -98,12 +107,16 @@ namespace SL.Lib
                 if (compResult < 0)
                 {
                     minIndices.Clear();
-                    minIndices.Add(GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    minIndices.Add(index);
                     minValue = _data[i];
                 }
                 else if (compResult == 0)
                 {
-                    minIndices.Add(GetIndices(i));
+                    int[] index = new int[_shape.Length];
+                    GetIndices(i, index);
+                    minIndices.Add(index);
                 }
             }
             return minIndices;
@@ -117,7 +130,7 @@ namespace SL.Lib
         /// </summary>
         /// <param name="selectMode">The mode for selecting the index when multiple minimum values exist.</param>
         /// <returns>The index of the minimum value.</returns>
-        public Indice[] ArgMin(ArgSelector.ArgSelect selectMode = ArgSelector.ArgSelect.FIRST)
+        public int[] ArgMin(ArgSelector.ArgSelect selectMode = ArgSelector.ArgSelect.FIRST)
         {
             var argsMin = ArgsMin();
             return ArgSelector.Select(argsMin, selectMode);

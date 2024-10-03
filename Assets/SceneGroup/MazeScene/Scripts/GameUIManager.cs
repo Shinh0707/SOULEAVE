@@ -16,6 +16,7 @@ public class GameUIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI fluxGaugeValueText;
     [SerializeField] private CustomUIGauge intensityGauge;
     [SerializeField] private TextMeshProUGUI intensityGaugeValueText;
+    [SerializeField] private TargetedEffectManager targetedEffectManager;
     [SerializeField] private RawImage minimapImage;
     [SerializeField] private RectTransform SkillBankBox;
     [SerializeField] private GameObject SkillBankContent;
@@ -63,6 +64,15 @@ public class GameUIManager : MonoBehaviour
     public void UpdatePlayerStats(float currentMp,float currentSight)
     {
         UpdatePlayerStats(currentMp, PlayerStatusManager.MaxMP,currentSight, PlayerStatusManager.MaxIntensity);
+    }
+
+    public void StartTargeted()
+    {
+        targetedEffectManager.StartTargeted();
+    }
+    public void EndTargeted()
+    {
+        targetedEffectManager.EndTargeted();
     }
 
     public void UpdateMinimap(Texture2D minimapTexture)

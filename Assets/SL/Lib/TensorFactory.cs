@@ -115,6 +115,38 @@ namespace SL.Lib
         }
 
         /// <summary>
+        /// Creates a Tensor filled with random values.
+        /// </summary>
+        /// <param name="shape">The shape of the Tensor.</param>
+        /// <returns>A new Tensor filled with random values.</returns>
+        public static Tensor<T> Randoms(int[] shape, float rate)
+        {
+            if (shape == null || shape.Length == 0)
+                throw new ArgumentException("Shape must be non-null and non-empty.", nameof(shape));
+
+            int size = shape.Aggregate(1, (a, b) => a * b);
+            T[] data = new T[size];
+
+            for (int i = 0; i < size; i++)
+            {
+                data[i] = NumericOperations.Random<T>(rate);
+            }
+
+            return new Tensor<T>(data, shape);
+        }
+
+        /// <summary>
+        /// Creates a Tensor filled with random values, matching the shape of another Tensor.
+        /// </summary>
+        /// <typeparam name="TSource">The type of the source Tensor.</typeparam>
+        /// <param name="tensor">The source Tensor whose shape to match.</param>
+        /// <returns>A new Tensor filled with random values, matching the shape of the source Tensor.</returns>
+        public static Tensor<T> Randoms<TSource>(Tensor<TSource> tensor, float rate) where TSource : IComparable<TSource>
+        {
+            return Randoms(tensor.Shape, rate);
+        }
+
+        /// <summary>
         /// Creates a Tensor filled with a specific value.
         /// </summary>
         /// <param name="value">The value to fill the Tensor with.</param>

@@ -68,7 +68,7 @@ public class UIWorldCollider : MonoBehaviour
         }
     }
 
-    private void Awake()
+    protected virtual void Awake()
     {
         rectTransform = GetComponent<RectTransform>();
         CreateCollider();

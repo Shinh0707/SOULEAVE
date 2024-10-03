@@ -23,6 +23,14 @@ namespace SL.Lib
             currentSouls = 0;
             eatenSouls = 0;
         }
+        public override void OnUpdate()
+        {
+            base.OnUpdate();
+            foreach (var soulNpc in soulNPCs)
+            {
+                soulNpc.OnUpdate();
+            }
+        }
         public override void UpdateState()
         {
             foreach (var soulNpc in soulNPCs)
@@ -51,15 +59,15 @@ namespace SL.Lib
             }
         }
 
-        public void InitializeSouls(List<Vector2> positions, (int, int) mazeSize)
+        public void InitializeSouls(List<Vector2> positions)
         {
             foreach (var position in positions)
             {
-                SpawnSoul(position, mazeSize);
+                SpawnSoul(position);
             }
         }
 
-        private void SpawnSoul(Vector2 position, (int, int) mazeSize)
+        private void SpawnSoul(Vector2 position)
         {
             GameObject soulNpcObject = Instantiate(soulNPCPrefab, position, Quaternion.identity);
             var soulNpc = soulNpcObject.GetComponent<SoulNPCController>();
@@ -72,7 +80,7 @@ namespace SL.Lib
                 PlayerStatusManager.MaxSpeed * ((float)SLRandom.Random.NextDouble() + 0.5f),
                 0.5f
             ));
-            soulNpc.Initialize(position, mazeSize);
+            soulNpc.Initialize(position);
             soulNPCs.Add(soulNpc);
             totalSouls++;
             currentSouls++;
@@ -81,7 +89,7 @@ namespace SL.Lib
         private void SpawnNewSoul()
         {
             Vector2 spawnPosition = MazeGameScene.Instance.MazeManager.GetRandomPosition();
-            SpawnSoul(spawnPosition, MazeGameScene.Instance.MazeManager.mazeSize);
+            SpawnSoul(spawnPosition);
         }
     }
 }

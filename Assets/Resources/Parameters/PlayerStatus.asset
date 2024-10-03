@@ -22,11 +22,11 @@ MonoBehaviour:
   CharacterStatus:
     MaxIntensity: 2
     RestoreIntensityPerSecond: 0.5
-    MaxMP: 20
-    RestoreMPPerSecond: 1
+    MaxFlux: 20
+    RestoreFluxPerSecond: 2
     MaxSpeed: 10
     InvincibilityDuration: 0.5
   PlayerParameter:
-    LP: 0
+    LP: 5
     MaxSkillBank: 4
     KeyMapping: 65000000720000007400000079000000

@@ -43,7 +43,8 @@ namespace SL.Lib
             FreezeState = 2,
             FreezePlayerInput = 4,
             FreezeEnemyInput = 8,
-            FreezeInput = 12
+            FreezeInput = 12,
+            FreezeAll = 27
         }
         public GameState CurrentState { get; private set; }
         public GameFlag CurrentFlag { get; private set; }
@@ -71,29 +72,35 @@ namespace SL.Lib
         {
             CurrentState = GameState.Setup;
             MazeGameMemory = new();
+            // GenerateMazeAsyncは、動的に迷路を生成する場合に使用する
+            // StageSelect時にSingletonでSelectedStageを保持させておき、それが動的生成するステージなら動的生成する。そうでなければステージを読み込む。
+            mazeManager.Initialize();
             yield return mazeManager.GenerateMazeAsync();
-            _gameStartTime = Time.time;
+            mazeManager.MazeData.SetEnemyArea(EnemyTypeSelect.Common | EnemyTypeSelect.Shot, mazeManager.CurrentRegion);
             PlayerStatusManager.Instance.ResetRuntimeStatus();
             player = Instantiate(playerPrefab);
             playerController = player.GetComponent<PlayerController>();
-            var mazeSize = MazeManager.mazeSize;
-            playerController.Initialize(mazeManager.StartPosition, mazeSize);
+            playerController.Initialize(mazeManager.StartPosition);
             goal = Instantiate(goalPrefab, new Vector3(mazeManager.GoalPosition.x, mazeManager.GoalPosition.y, 0f), Quaternion.identity);
-            enemyManager.InitializeEnemies(mazeManager.GetRandomPositions(mazeManager.firstEnemies), mazeSize);
+            enemyManager.SpawnEnemies(mazeManager.GetEnemySpawnData());
             soulNPCManager.Initialize();
-            soulNPCManager.InitializeSouls(mazeManager.GetRandomPositions(Mathf.Max(1,Mathf.RoundToInt(mazeManager.firstEnemies * 0.5f))), mazeSize);
+            soulNPCManager.InitializeSouls(mazeManager.GetRandomPositions(Mathf.Max(1,Mathf.RoundToInt(mazeManager.firstEnemies * 0.5f))));
             uiManager.Initialize();
             var cameraFollow = Camera.main.GetOrAddComponent<CameraFollow2D>();
             cameraFollow.Initialize(playerController.character.transform);
             cameraFollow.follow = true;
             GameTime = 0f;
             yield return new WaitForSeconds(2f); // レンダリング待ち
+            _gameStartTime = Time.time;
             CurrentState = GameState.Playing;
             // TODO: ゲーム開始時のサウンドを再生する処理を追加
         }
 
         protected override void OnFixedUpdate()
         {
+            Player.OnUpdate();
+            EnemyManager.OnUpdate();
+            SoulNPCManager.OnUpdate();
             if (CurrentState == GameState.Playing)
             {
                 if (!CurrentFlag.HasFlag(GameFlag.FreezeTime))
@@ -103,6 +110,7 @@ namespace SL.Lib
                 }
                 if (!CurrentFlag.HasFlag(GameFlag.FreezeState))
                 {
+                    mazeManager.ResetIntensityMap();
                     Player.UpdateState();
                     EnemyManager.UpdateState();
                     SoulNPCManager.UpdateState();
@@ -177,6 +185,7 @@ namespace SL.Lib
             if (playerController.IsDead)
             {
                 CurrentState = GameState.GameOver;
+                CurrentFlag = GameFlag.FreezeAll;
                 uiManager.ShowGameOverScreen();
 
                 // TODO: ゲームオーバー時のサウンドを再生する処理を追加
@@ -191,8 +200,10 @@ namespace SL.Lib
                 UIManager.HideGameOverScreen();
                 MazeGameMemory.Respawn();
                 playerController.Reinitialize();
-                CurrentState = GameState.Playing;
                 playerController.CurrentState |= CharacterState.Alive;
+                CurrentState = GameState.Playing;
+                CurrentFlag = GameFlag.None;
+                playerController.StartInvincible();
             }
         }
 
@@ -218,12 +229,12 @@ namespace SL.Lib
         {
             if (!Success)
             {
-                UIManager.HideGameOverScreen();
+                if(MazeGameMemory.CollectedLP > 0)
+                {
+                    MazeGameMemory.CollectedLP = 0;
+                }
             }
-            else
-            {
-                MazeGameMemory.AssignMemory();
-            }
+            MazeGameMemory.AssignMemory();
             SceneManager.Instance.TransitionToScene(Scenes.Home);
         }
 

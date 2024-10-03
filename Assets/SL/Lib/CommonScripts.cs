@@ -49,6 +49,12 @@ namespace SL.Lib
 
             return -1;  // 見つからなかった場合
         }
+        public static IEnumerable<T> PopMany<T>(this List<T> src, Func<T,bool> predicate)
+        {
+            var result = src.Where(predicate);
+            src.RemoveAll(x => predicate(x));
+            return result;
+        }
     }
 
     public static class VectorExtensions 
@@ -80,6 +86,50 @@ namespace SL.Lib
 
             return vertices;
         }
+        public static Vector3 EaseInQuadratic(Vector3 start, Vector3 end, float t)
+        {
+            t = Mathf.Clamp01(t);
+            float easedT = t * t; // Quadratic easing
+            return Vector3.Lerp(start, end, easedT);
+        }
+
+        public static Vector3 EaseInTanh(Vector3 start, Vector3 end, float t)
+        {
+            t = Mathf.Clamp01(t);
+            float easedT = (float)Math.Tanh(t * 2f) / 2f + 0.5f; // Adjusted Tanh easing
+            return Vector3.Lerp(start, end, easedT);
+        }
+
+        public static Vector3 EaseInArctan(Vector3 start, Vector3 end, float t)
+        {
+            t = Mathf.Clamp01(t);
+            float easedT = Mathf.Atan(t * Mathf.PI / 2) / (Mathf.PI / 2); // Arctan easing
+            return Vector3.Lerp(start, end, easedT);
+        }
+        public static Vector3 ToVector3WithOrientation(this Vector2 vector2, Vector3 upDirection)
+        {
+            // Normalize the up direction
+            upDirection.Normalize();
+
+            // Create a rotation from the default up vector (0, 1, 0) to the desired up direction
+            Quaternion rotation = Quaternion.FromToRotation(Vector3.up, upDirection);
+
+            // Convert Vector2 to Vector3, setting z to 0
+            Vector3 vector3 = new Vector3(vector2.x, vector2.y, 0);
+
+            // Apply the rotation to the vector
+            return rotation * vector3;
+        }
+
+        public static float Atan2(this Vector2 vector2) {
+            var vn = vector2.normalized;
+            return Mathf.Atan2(vn.y, vn.x);
+        }
+        public static Vector3 SetZ(this Vector3 vector3, float z)
+        {
+            return new Vector3(vector3.x,vector3.y, z);
+        }
+        public static Vector2 RadToVector2(float radAngle) => new Vector2(Mathf.Cos(radAngle), Mathf.Sin(radAngle));
     }
 
     public static class GradientExtensions
@@ -310,15 +360,37 @@ namespace SL.Lib
             }
             return obj.AddComponent<T>();
         }
-        public static bool TryGetComponentInParent<T>(this Component obj, out T comp) where T : Component
+        public static bool TryGetComponentInParent<T>(this Component obj, out T comp) where T : class
         {
-            comp = obj.GetComponentInParent<T>();
+            if (!obj.TryGetComponent(out comp))
+            {
+                comp = obj.GetComponentInParent<T>();
+                return comp != null;
+            }
+            return true;
+        }
+        public static bool TryGetComponentInParent<T>(this GameObject obj, out T comp) where T : class
+        {
+            if (!obj.TryGetComponent(out comp))
+            {
+                comp = obj.GetComponentInParent<T>();
+                return comp != null;
+            }
             return comp != null;
         }
-        public static bool TryGetComponentInParent<T>(this GameObject obj, out T comp) where T : Component
+        public static bool TryGetComponentInChildren<T>(this GameObject obj, out T comp) where T : class
         {
-            comp = obj.GetComponentInParent<T>();
+            comp = obj.GetComponentInChildren<T>();
             return comp != null;
+        }
+
+        public static bool TryGetComponentInChildrenToParent<T>(this GameObject obj, out T comp) where T : class
+        {
+            if (!obj.TryGetComponentInChildren(out comp))
+            {
+                return obj.TryGetComponentInParent(out comp);
+            }
+            return true;
         }
 
     }
@@ -329,6 +401,16 @@ namespace SL.Lib
         {
             // 1. RectTransformの世界座標系でのデルタ位置を計算
             RectTransform canvasRectTransform = canvas.transform as RectTransform;
+            if (canvas.renderMode != RenderMode.ScreenSpaceOverlay)
+            {
+                if(canvas.renderMode == RenderMode.ScreenSpaceCamera)
+                {
+                    Vector3 worldOffset = Vector2.Scale(screenOffset, canvasRectTransform.localScale).ToVector3WithOrientation(canvas.worldCamera.transform.up);
+                    return rectTransform.position - canvas.worldCamera.transform.forward * (canvas.planeDistance - depth) + worldOffset;
+                }
+                return rectTransform.position;
+            }
+           
             Vector3[] canvasWorldCorners = new Vector3[4];//LD,LU,RU,RL
             canvasRectTransform.GetWorldCorners(canvasWorldCorners);
             Rect canvasWorldRect = new(canvasWorldCorners[0].x, canvasWorldCorners[0].y, canvasWorldCorners[3].x - canvasWorldCorners[0].x, canvasWorldCorners[1].y - canvasWorldCorners[0].y);
@@ -376,6 +458,14 @@ namespace SL.Lib
         }
     }
 
+    public static class ColorExtension
+    {
+        public static Color SetAlpha(this Color color,float alpha)
+        {
+            return new Color(color.r,color.g,color.b,alpha);
+        }
+    }
+
     public class SLRandom
     {
         private static System.Random _random;
@@ -386,6 +476,62 @@ namespace SL.Lib
         {
             var selectList = pool.Select((v, i) => (v, i)).Where((v) => v.v.Equals(value));
             return SelectRandom(selectList.Select((v) => v.i).ToList());
+        }
+        public static T[] ChoicesWithMinimalDuplication<T>(IEnumerable<T> pool, int k)
+        {
+            if (pool == null)
+                throw new ArgumentNullException(nameof(pool));
+
+            var poolList = new List<T>(pool);
+            int n = poolList.Count;
+
+            if (k < 0)
+                throw new ArgumentOutOfRangeException(nameof(k), "k must be non-negative.");
+
+            if (n == 0 && k > 0)
+                throw new InvalidOperationException("Cannot choose from an empty pool.");
+
+            T[] result = new T[k];
+
+            if (k <= n)
+            {
+                // poolの長さ以下の場合は重複なしで選択
+                return Choices(poolList, k);
+            }
+            else
+            {
+                // poolの長さを超える場合は、まず全ての要素を選択
+                poolList.CopyTo(result, 0);
+
+                // 残りの要素を均等に分配
+                int remainingCount = k - n;
+                int[] counts = new int[n];
+                for (int i = 0; i < remainingCount; i++)
+                {
+                    counts[i % n]++;
+                }
+
+                // countsに基づいて要素を追加
+                int index = n;
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = 0; j < counts[i]; j++)
+                    {
+                        result[index++] = poolList[i];
+                    }
+                }
+
+                // 結果をシャッフル
+                for (int i = 0; i < k; i++)
+                {
+                    int j = Random.Next(i, k);
+                    T temp = result[i];
+                    result[i] = result[j];
+                    result[j] = temp;
+                }
+            }
+
+            return result;
         }
         public static T Choice<T>(T[] pool, float[] weights)
         {
@@ -460,6 +606,61 @@ namespace SL.Lib
 
             return result;
         }
+        public static T GetRandomEnumValue<T>() where T : Enum
+        {
+            Type enumType = typeof(T);
+            Array values = Enum.GetValues(enumType);
+            // FlagsAttributeを持つかチェック
+            bool isFlags = enumType.GetCustomAttributes(typeof(FlagsAttribute), false).Any();
+
+            if (isFlags)
+            {
+                // FlagsAttributeを持つ場合、0以外の値からランダムに選択
+                var nonZeroValues = values.Cast<T>().Where(v => Convert.ToInt64(v) != 0).ToArray();
+                if (nonZeroValues.Length == 0)
+                {
+                    throw new InvalidOperationException($"Enum {enumType.Name} has no non-zero values.");
+                }
+                return nonZeroValues[Random.Next(nonZeroValues.Length)];
+            }
+            else
+            {
+                // 通常のEnumの場合、すべての値から選択
+                return (T)values.GetValue(Random.Next(values.Length));
+            }
+        }
+        public static T GetRandomEnumValue<T>(T enumValue) where T : Enum
+        {
+            Type enumType = typeof(T);
+            Array values = Enum.GetValues(enumType);
+            // FlagsAttributeを持つかチェック
+            bool isFlags = enumType.GetCustomAttributes(typeof(FlagsAttribute), false).Any();
+
+            if (isFlags)
+            {
+                // FlagsAttributeを持つ場合、0以外の値からランダムに選択
+                var nonZeroValues = values.Cast<T>().Where(v => Convert.ToInt64(v) != 0 && enumValue.HasFlag(v)).ToArray();
+                if (nonZeroValues.Length == 0)
+                {
+                    throw new InvalidOperationException($"Enum {enumType.Name} has no non-zero values.");
+                }
+                return nonZeroValues[Random.Next(nonZeroValues.Length)];
+            }
+            else
+            {
+                // 通常のEnumの場合、すべての値から選択
+                return (T)values.GetValue(Random.Next(values.Length));
+            }
+        }
+
+        public static Vector2 insideRing(float minRadius, float maxRadius)
+        {
+            var circle = UnityEngine.Random.insideUnitCircle;
+            return circle * (maxRadius - minRadius) + circle.normalized*minRadius; 
+        }
+
+        public static float NextSingle(float min, float max) => Mathf.Lerp(min, max, (float)Random.NextDouble());
+        public static float NextSingle(float max) => NextSingle(0, max);
     }
     public static class ShadowCaster2DExtensions
     {

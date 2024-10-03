@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e73922978d2c961438431ec644f0e890, type: 3}
+  m_Name: DefaultMazeManagerData
+  m_EditorClassIdentifier: 
+  AutoCreateMazeDataParameter:
+    mazeSize: {x: 10, y: 10}
+    tileList:
+    - {fileID: 11400000, guid: 1f07789ca16ae114eb68e1f6786c7934, type: 2}
+    - {fileID: 11400000, guid: 740cd93554c341c469d2afcb412ca216, type: 2}
+    mazeRouteRate: 0.263
+    enemyTypes: -1
+    enemyRates:
+    - EnemyType: 1
+      Rate: 0.66638076
+    - EnemyType: 2
+      Rate: 0.3336192

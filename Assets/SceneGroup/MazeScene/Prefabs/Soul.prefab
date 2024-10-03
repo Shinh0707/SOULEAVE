@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6368857307700301039}
   - component: {fileID: 2358115010172182425}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Soul
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -48,12 +48,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   collisionLayer:
     serializedVersion: 2
-    m_Bits: 192
+    m_Bits: 1600
   character: {fileID: 7869071750552461741}
+  spriteRenderer: {fileID: 0}
   MaxSpeed: 5
-  SightRange: 5
+  RotationSpeed: 0.1
+  CurrentRotation: 0
+  _sightRange: 5
   targetLight: {fileID: 8912005382113139868}
   wispParticle: {fileID: 7830565996780750408}
+  escapeDistance: 5
+  groupingDistance: 3
+  wanderStrength: 0.3
 --- !u!1 &2857179223960252815
 GameObject:
   m_ObjectHideFlags: 0
@@ -65,7 +71,7 @@ GameObject:
   - component: {fileID: 9134074848365203080}
   - component: {fileID: 3674184769249187533}
   - component: {fileID: 5949526227172537664}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: WispInspire
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5029,7 +5035,7 @@ GameObject:
   - component: {fileID: 4011786552087100600}
   - component: {fileID: 7630024612667454034}
   - component: {fileID: 8912005382113139868}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Light
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5149,7 +5155,7 @@ GameObject:
   - component: {fileID: 1166535616838365191}
   - component: {fileID: 7830565996780750408}
   - component: {fileID: 2779762037042086853}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Wisp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10115,7 +10121,7 @@ GameObject:
   - component: {fileID: 391309558163721265}
   - component: {fileID: 854804621021634168}
   - component: {fileID: 7561097366759428374}
-  m_Layer: 7
+  m_Layer: 9
   m_Name: Character
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10223,7 +10229,7 @@ GameObject:
   - component: {fileID: 223909460741577594}
   - component: {fileID: 7507370967333339286}
   - component: {fileID: 2331795032141315648}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: WispInside
   m_TagString: Untagged
   m_Icon: {fileID: 0}

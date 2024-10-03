@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections.Generic;
 using SL.Lib;
+using System.Linq;
 
 public enum Direction { Up, Down, Left, Right }
 
@@ -20,20 +21,94 @@ public interface IVirtualInput
     bool IsActionPressed { get; }
 }
 
-public abstract class Character<TInput> : DynamicObject where TInput : IVirtualInput
+public interface ICharacterController
+{
+    public string Name { get; }
+    public string ID { get; }
+    public Vector2 Position { get; }
+
+    public void OnUpdate();
+    public void UpdateState();
+    public void HandleInput();
+
+}
+
+public class ICharacterControllerManagaer<TController> where TController : ICharacterController
+{
+    public static Dictionary<string, TController> InstantinatedControllers = new();
+
+    public static string Add(TController controller)
+    {
+        string id = Guid.NewGuid().ToString();
+        InstantinatedControllers.Add(id, controller);
+        return id;
+    }
+    public static void Remove(string id)
+    {
+        if (InstantinatedControllers.ContainsKey(id))
+        {
+            InstantinatedControllers.Remove(id);
+        }
+    }
+
+    public static bool HasID(string id) => InstantinatedControllers.ContainsKey(id);
+    public static TController GetController(string id) => InstantinatedControllers[id];
+    public static List<TController> GetOtherControllers(string id) => InstantinatedControllers.Where(p => p.Key != id).Select(p => p.Value).ToList();
+    public static void OnUpdate()
+    {
+        var controllers = InstantinatedControllers.Select(c => c.Key).ToList();
+        foreach (var id in controllers)
+        {
+            if (InstantinatedControllers.ContainsKey(id))
+            {
+                InstantinatedControllers[id].OnUpdate();
+            }
+        }
+    }
+    public static void UpdateState()
+    {
+        var controllers = InstantinatedControllers.Select(c => c.Key).ToList();
+        foreach (var id in controllers)
+        {
+            if (InstantinatedControllers.ContainsKey(id))
+            {
+                InstantinatedControllers[id].UpdateState();
+            }
+        }
+    }
+    public static void HandleInput()
+    {
+        var controllers = InstantinatedControllers.Select(c => c.Key).ToList();
+        foreach (var id in controllers)
+        {
+            if (InstantinatedControllers.ContainsKey(id))
+            {
+                InstantinatedControllers[id].HandleInput();
+            }
+        }
+    }
+}
+
+public abstract class Character<TInput> : DynamicObject, ICharacterController where TInput : IVirtualInput
 {
     [SerializeField] protected LayerMask collisionLayer;
     [SerializeField] public GameObject character;
+    [SerializeField] protected SpriteRenderer spriteRenderer;
     
+    public string Name => character.name;
+    protected string id = null;
+    public string ID => id;
     public Vector2 Position
     {
         get 
         {
+            if(rb == null) return character.transform.position;
             return rb.position;
         }
         set
         {
-            rb.position = value;
+            if (rb == null) character.transform.position = value;
+            else rb.position = value;
         }
     }
 
@@ -42,11 +117,10 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
 
     private Dictionary<string, ContactFilter2D> contactFilters = new Dictionary<string, ContactFilter2D>();
     private List<Collider2D> collisionResults = new List<Collider2D>(4);
-
-    public Direction FacingDirection { get; protected set; }
     public float CurrentSpeed => rb.velocity.magnitude;
     public float MaxSpeed = 5f;
-
+    public float RotationSpeed = 0.1f;
+    public float CurrentRotation = 0f;
     private CharacterState currentState = CharacterState.Disabled;
     public CharacterState CurrentState
     {
@@ -56,8 +130,8 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
             if (currentState != value)
             {
                 CharacterState oldState = currentState;
-                OnStateExit(oldState);
                 currentState = value;
+                OnStateExit(oldState);
                 OnStateEnter(currentState);
                 OnStateChange(oldState, currentState);
             }
@@ -77,11 +151,36 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
         } 
     }
 
+    private float _facingDirection = 0f;
+
+    public float FacingDirection
+    {
+        get
+        {
+            return _facingDirection;
+        }
+        set
+        {
+            CurrentRotation = _facingDirection;
+            _facingDirection = value;
+        }
+    }
+
     protected TInput virtualInput;
 
     protected virtual void Awake()
     {   
         characterCollider = character.GetOrAddComponent<Collider2D>();
+        if (spriteRenderer == null)
+        {
+            if (!character.TryGetComponent(out spriteRenderer))
+            {
+                if (TryGetComponent(out spriteRenderer))
+                {
+
+                }
+            }
+        }
         CollisionDetector collisionDetector = character.GetOrAddComponent<CollisionDetector>();
         rb = collisionDetector.rigidbody2d;
         collisionDetector.OnCollisionDetected -= OnCollisionCheck;
@@ -102,9 +201,9 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
     }
 
-    public override void UpdateState()
+    public override void OnUpdate()
     {
-        base.UpdateState();
+        base.OnUpdate();
         rb.Sleep();
     }
 
@@ -178,21 +277,31 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
     }
 
     public bool CollisionWall(Vector2? position = null) => CheckCollision("Wall", position);
-    public bool CollisionOtherCharacter(Vector2? position = null) => CheckCollision("Character", position);
 
     protected void UpdateFacingDirection(Vector2 movement)
     {
         if (movement != Vector2.zero)
         {
-            FacingDirection = Mathf.Abs(movement.x) > Mathf.Abs(movement.y)
-                ? (movement.x > 0 ? Direction.Right : Direction.Left)
-                : (movement.y > 0 ? Direction.Up : Direction.Down);
+            FacingDirection = movement.Atan2() * Mathf.Rad2Deg;
+        }
+        float current = character.transform.eulerAngles.z;
+        float dir = Mathf.DeltaAngle(current, FacingDirection);
+        float d = RotationSpeed * Time.deltaTime;
+
+        if (Mathf.Abs(dir) > d)
+        {
+            float newAngle = current + Mathf.Sign(dir) * d;
+            character.transform.rotation = Quaternion.Euler(0, 0, newAngle);
+        }
+        else
+        {
+            character.transform.rotation = Quaternion.Euler(0, 0, FacingDirection);
         }
     }
-    public virtual void Initialize(Vector2 position, (int rows, int cols) mazeSize)
+    public virtual void Initialize(Vector2 position)
     {
         rb.position = position;
-        FacingDirection = Direction.Up;
+        FacingDirection = 0f;
         CurrentState |= CharacterState.Alive;
     }
     public virtual void Warp(Vector2 targetPosition)
@@ -201,7 +310,21 @@ public abstract class Character<TInput> : DynamicObject where TInput : IVirtualI
         rb.position = targetPosition;
         characterCollider.enabled = true;
     }
-    protected virtual void OnAfterMove() { }
+    protected virtual void OnAfterMove() 
+    {
+        if (spriteRenderer != null)
+        {
+            var currentPosIntensity = MazeGameScene.Instance.MazeManager.GetIntensity(Position);
+            if (currentPosIntensity > 0)
+            {
+                spriteRenderer.color = spriteRenderer.color.SetAlpha(1f);
+            }
+            else
+            {
+                spriteRenderer.color = spriteRenderer.color.SetAlpha(0);
+            }
+        }
+    }
     protected virtual void OnStateEnter(CharacterState newState) { }
     protected virtual void OnStateExit(CharacterState oldState) { }
     protected virtual void OnStateChange(CharacterState oldState, CharacterState newState) { }

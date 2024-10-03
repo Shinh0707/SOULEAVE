@@ -449,5 +449,7 @@ public class SerializableDictionary<TKey, TValue> : ISerializationCallbackReceiv
 #if UNITY_EDITOR
 [CustomPropertyDrawer(typeof(SerializableDictionary<Scenes, SceneData>)), CanEditMultipleObjects]
 public class ScenesDictionaryDrawer : SerializableDictionary<Scenes, SceneData>.SerializableDictionaryDrawer { }
+[CustomPropertyDrawer(typeof(SerializableDictionary<EnemyType, GameObject>)), CanEditMultipleObjects]
+public class EnemyTypeDictionaryDrawer : SerializableDictionary<EnemyType, GameObject>.SerializableDictionaryDrawer { }
 // 必要に応じて、他の具体的な型の組み合わせに対するDrawerを追加
 #endif

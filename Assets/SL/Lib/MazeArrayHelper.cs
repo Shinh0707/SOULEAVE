@@ -27,7 +27,7 @@ namespace SL.Lib
         /// <param name="pos">The center position as an array of two Indices.</param>
         /// <param name="tensor">The source 2D tensor.</param>
         /// <returns>An ESEResult instance representing the 3x3 area around the specified position.</returns>
-        public static ESEResult Get<T>(Indice[] pos, Tensor<T> tensor) where T : IComparable<T>
+        public static ESEResult Get<T>(int[] pos, Tensor<T> tensor) where T : IComparable<T>
         {
             if (pos == null || pos.Length != 2)
                 throw new ArgumentException("Position must be an array of two Indice objects.", nameof(pos));
@@ -37,9 +37,8 @@ namespace SL.Lib
 
             int rows = tensor.Shape[0];
             int cols = tensor.Shape[1];
-            var realpos = tensor.GetRealIndices(pos);
-            int centerRow = realpos[0][0];
-            int centerCol = realpos[1][0];
+            int centerRow = pos[0];
+            int centerCol = pos[1];
 
             return new ESEResult(
                 (centerRow, centerCol),
@@ -135,8 +134,9 @@ namespace SL.Lib
         public List<int> RouteLabels { get { return _labelKinds; } }
         public int GetAreaSize(int label) => (_label == label).Cast<int>().Sum();
         public int GetAreaSize(Indice[] labelPosition) => GetAreaSize(_label[labelPosition].item);
+        public int GetAreaSize(int[] labelPosition) => GetAreaSize(_label[labelPosition]);
 
-        public void ApplyEachLabel<T>(Action<List<Indice[]>> func) where T : IComparable<T>
+        public void ApplyEachLabel<T>(Action<List<int[]>> func) where T : IComparable<T>
         {
             foreach (var kind in _labelKinds)
             {
@@ -188,8 +188,16 @@ namespace SL.Lib
             }
             return _label == selectedLabel;
         }
-
+        public Tensor<bool> GetAreaMask(int selectedLabel) => _label == selectedLabel;
         public void UpdateLabel(Indice[] indices, int setLabel)
+        {
+            if (setLabel != 0 && !_labelKinds.Contains(setLabel))
+            {
+                _labelKinds.Append(setLabel);
+            }
+            _label[indices] = setLabel;
+        }
+        public void UpdateLabel(int[] indices, int setLabel)
         {
             if (setLabel != 0 && !_labelKinds.Contains(setLabel))
             {
@@ -210,7 +218,7 @@ namespace SL.Lib
 
     public class MazeCreater
     {
-        public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out Indice[] indice) where T : IComparable<T>
+        public static bool FindRandomPosition<T>(Tensor<T> field, T searchValue, Tensor<bool> mask, out int[] indice) where T : IComparable<T>
         {
             var selectMask = mask & (field == searchValue);
             if (selectMask.Any())
@@ -219,13 +227,14 @@ namespace SL.Lib
                 indice = SelectRandom(selectList);
                 return true;
             }
-            indice = field.GetIndices(0);
+            indice = new int[field.ndim];
+            field.GetIndices(0, indice);
             return false;
         }
 
-        public static bool SetWall(Indice[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabel)
+        public static bool SetWall(int[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabel)
         {
-            if (field[pos].item == 1f)
+            if (field[pos] == 1f)
             {
                 newField = field;
                 newTensorLabel = tensorLabel;
@@ -268,9 +277,9 @@ namespace SL.Lib
             return true;
         }
 
-        public static bool DeleteWall(Indice[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabe)
+        public static bool DeleteWall(int[] pos, Tensor<int> field, int minSize, TensorLabel tensorLabel, out Tensor<int> newField, out TensorLabel newTensorLabe)
         {
-            if (field[pos].item == 0f)
+            if (field[pos] == 0f)
             {
                 newField = field;
                 newTensorLabe = tensorLabel;
@@ -318,7 +327,7 @@ namespace SL.Lib
             {
                 fieldMask = tensorLabel.GetAreaMask(TensorLabel.AreaMaskSelectMode.MAX);
             }
-            if (FindRandomPosition(field, 1 - (int)tile, fieldMask, out Indice[] pos))
+            if (FindRandomPosition(field, 1 - (int)tile, fieldMask, out int[] pos))
             {
                 if (tile == MazeBaseTile.ROUTE)
                 {
@@ -341,7 +350,7 @@ namespace SL.Lib
                 (field, tensorLabel) = AutoSet(field, Choice(new[] { MazeBaseTile.ROUTE, MazeBaseTile.WALL }, new[] { 0.1f, 1.0f }), minSize, tensorLabel);
             }
             tensorLabel = new TensorLabel(field == 0);
-            //Debug.Log($"{tensorLabel.Label}");
+            //Debug.Log($"{mazeLabel.Label}");
             return (field, tensorLabel);
         }
 
@@ -660,7 +669,7 @@ namespace SL.Lib
         private static bool _rotMasksCreated;
         private static Tensor<int> _rotLabel;
         private static Tensor<bool> _surroundMask;
-        private static List<Indice[]> _surrondMaskIndices;
+        private static List<int[]> _surrondMaskIndices;
         private static Tensor<float> _neighborMask;
         private static Tensor<bool> _neighborBoolMask;
         private static Tensor<float> _deltaMask;
@@ -728,7 +737,7 @@ namespace SL.Lib
             }
         }
 
-        public static List<Indice[]> SurroundMaskIndice
+        public static List<int[]> SurroundMaskIndice
         {
             get
             {
@@ -816,7 +825,7 @@ namespace SL.Lib
             float ddy = ddx = Mathf.Pow(1.0f / dx, 2);
             alpha = Mathf.Min(alpha, (0.5f / (ddx + ddy)) / dt);
             var normalizedDeltaScore = new Tensor<float>(deltaScore);
-            tensorLabel.ApplyEachLabel<float>((List<Indice[]> indices) =>
+            tensorLabel.ApplyEachLabel<float>((List<int[]> indices) =>
             {
                 normalizedDeltaScore[indices] = normalizedDeltaScore[indices].RN2C();
             });
@@ -923,9 +932,9 @@ namespace SL.Lib
             return Fluid(sources, stable, field == 0, -sourceAmount, sourceAmount, maxSteps);
         }
 
-        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<float> normalizedFilledSteps, Tensor<float> normalizedPreak, TensorLabel tensorLabel)
+        public static Dictionary<int, (List<int[]>, List<int[]>)> GetStartAndGoal(Tensor<float> normalizedFilledSteps, Tensor<float> normalizedPreak, TensorLabel tensorLabel)
         {
-            Dictionary<int, (List<Indice[]>, List<Indice[]>)> points = new();
+            Dictionary<int, (List<int[]>, List<int[]>)> points = new();
             void setStartAndGoal(Tensor<bool> selector, int label)
             {
                 var maxPoints = normalizedFilledSteps.MinMask(selector);
@@ -938,7 +947,7 @@ namespace SL.Lib
             return points;
         }
 
-        public static Dictionary<int, (List<Indice[]>, List<Indice[]>)> GetStartAndGoal(Tensor<int> field, TensorLabel tensorLabel)
+        public static Dictionary<int, (List<int[]>, List<int[]>)> GetStartAndGoal(Tensor<int> field, TensorLabel tensorLabel)
         {
             var neighborScore = NeighborScore(field);
             var deltaScore = DeltaScore(field, neighborScore);
@@ -947,7 +956,7 @@ namespace SL.Lib
             var fluidResult = FluidDifficulty(field, difficultyPeaks, deltaScore, tensorLabel, 5000);
             return GetStartAndGoal(fluidResult, difficultyPeaks, tensorLabel);
         }
-        public static IEnumerator GetStartAndGoalAsync(Tensor<int> field, TensorLabel tensorLabel, Action<Dictionary<int, (List<Indice[]>, List<Indice[]>)>> callback)
+        public static IEnumerator GetStartAndGoalAsync(Tensor<int> field, TensorLabel tensorLabel, Action<Dictionary<int, (List<int[]>, List<int[]>)>> callback)
         {
             Debug.Log("GetStartAndGoalAsync: Starting calculation");
 
@@ -988,7 +997,7 @@ namespace SL.Lib
             callback(result);
             Debug.Log("GetStartAndGoalAsync: Calculation finished and callback invoked");
         }
-        public static IEnumerator CalculateStartAndGoalPointsAsync(Tensor<int> baseMap, TensorLabel tensorLabel, Dictionary<int, (List<Indice[]>, List<Indice[]>)> startAndGoalPoints)
+        public static IEnumerator CalculateStartAndGoalPointsAsync(Tensor<int> baseMap, TensorLabel tensorLabel, Dictionary<int, (List<int[]>, List<int[]>)> startAndGoalPoints)
         {
             bool calculationComplete = false;
             yield return GetStartAndGoalAsync(baseMap, tensorLabel, result =>
@@ -1012,7 +1021,7 @@ namespace SL.Lib
             alpha = Mathf.Min(alpha, (0.5f / (ddx + ddy)) / dt);
 
             var normalizedDeltaScore = new Tensor<float>(deltaScore);
-            tensorLabel.ApplyEachLabel<float>((List<Indice[]> indices) =>
+            tensorLabel.ApplyEachLabel<float>((List<int[]> indices) =>
             {
                 normalizedDeltaScore[indices] = normalizedDeltaScore[indices].RN2C();
             });

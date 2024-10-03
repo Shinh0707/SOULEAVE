@@ -107,19 +107,19 @@ public class SkillUseCostData
 
     public bool CanUse(PlayerController player)
     {
-        return MPCost.CheckRequired(player.MP, PlayerStatusManager.MaxMP) && IntensityCost.CheckRequired(player.Intensity, PlayerStatusManager.MaxIntensity);
+        return MPCost.CheckRequired(player.Flux, PlayerStatusManager.MaxMP) && IntensityCost.CheckRequired(player.Intensity, PlayerStatusManager.MaxIntensity);
     }
     public void ApplyCost(PlayerController player)
     {
-        Debug.Log($"Applied Cost MP[{MPCost.useCost.GetActualCost(player.MP, PlayerStatusManager.MaxMP)}], Intensity[{IntensityCost.useCost.GetActualCost(player.Intensity, PlayerStatusManager.MaxIntensity)}]");
-        lastMP = player.MP;
+        Debug.Log($"Applied Cost Flux[{MPCost.useCost.GetActualCost(player.Flux, PlayerStatusManager.MaxMP)}], Intensity[{IntensityCost.useCost.GetActualCost(player.Intensity, PlayerStatusManager.MaxIntensity)}]");
+        lastMP = player.Flux;
         lastIntensity = player.Intensity;
-        player.MP -= MPCost.useCost.GetActualCost(player.MP, PlayerStatusManager.MaxMP);
+        player.Flux -= MPCost.useCost.GetActualCost(player.Flux, PlayerStatusManager.MaxMP);
         player.Intensity -= IntensityCost.useCost.GetActualCost(player.Intensity, PlayerStatusManager.MaxIntensity);
     }
     public void ReturnCost(PlayerController player)
     {
-        player.MP = lastMP;
+        player.Flux = lastMP;
         player.Intensity = lastIntensity;
     }
 }

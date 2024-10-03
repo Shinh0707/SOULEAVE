@@ -171,6 +171,14 @@ namespace SL.Lib
             return new Tensor<TResult>(newData, Shape);
         }
     }
+
+    public interface INumeric<T>
+    {
+        public abstract T Zero();
+        public abstract T One();
+        public abstract T Random(float rate);
+    }
+
     public static class NumericOperations
     {
         public static T Add<T>(T a, T b)
@@ -265,6 +273,11 @@ namespace SL.Lib
             if (typeof(T) == typeof(double)) return (T)(object)1.0;
             if (typeof(T) == typeof(decimal)) return (T)(object)1m;
             if (typeof(T) == typeof(bool)) return (T)(object)true;
+            if (typeof(INumeric<T>).IsAssignableFrom(typeof(T)))
+            {
+                // INumeric<T> Çé¿ëïÇµÇƒÇ¢ÇÈå^ÇÃèÍçá
+                return ((INumeric<T>)Activator.CreateInstance(typeof(T))).One();
+            }
             throw new NotSupportedException($"Type {typeof(T)} is not supported for One operation.");
         }
 
@@ -275,7 +288,42 @@ namespace SL.Lib
             if (typeof(T) == typeof(double)) return (T)(object)0.0;
             if (typeof(T) == typeof(decimal)) return (T)(object)0m;
             if (typeof(T) == typeof(bool)) return (T)(object)false;
+            if (typeof(INumeric<T>).IsAssignableFrom(typeof(T)))
+            {
+                // INumeric<T> Çé¿ëïÇµÇƒÇ¢ÇÈå^ÇÃèÍçá
+                return ((INumeric<T>)Activator.CreateInstance(typeof(T))).Zero();
+            }
             throw new NotSupportedException($"Type {typeof(T)} is not supported for Zero operation.");
+        }
+        public static T Random<T>(float rate)
+        {
+            if (rate < 0 || rate > 1)
+                throw new ArgumentOutOfRangeException(nameof(rate), "Rate must be between 0 and 1.");
+
+            var random = SLRandom.Random;
+
+            if (typeof(T) == typeof(int))
+                return (T)(object)random.Next((int)(int.MaxValue * rate));
+
+            if (typeof(T) == typeof(float))
+                return (T)(object)((float)random.NextDouble() * rate);
+
+            if (typeof(T) == typeof(double))
+                return (T)(object)(random.NextDouble() * rate);
+
+            if (typeof(T) == typeof(decimal))
+                return (T)(object)((decimal)random.NextDouble() * (decimal)rate);
+
+            if (typeof(T) == typeof(bool))
+                return (T)(object)(random.NextDouble() < rate);
+
+            if (typeof(INumeric<T>).IsAssignableFrom(typeof(T)))
+            {
+                // INumeric<T> Çé¿ëïÇµÇƒÇ¢ÇÈå^ÇÃèÍçá
+                return ((INumeric<T>)Activator.CreateInstance(typeof(T))).Random(rate);
+            }
+
+            throw new NotSupportedException($"Type {typeof(T)} is not supported for Random operation.");
         }
 
         private static T PerformOperation<T>(T a, T b,

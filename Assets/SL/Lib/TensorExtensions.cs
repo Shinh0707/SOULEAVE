@@ -6,5 +6,4 @@ using UnityEngine;
 
 namespace SL.Lib
 {
-    
 }

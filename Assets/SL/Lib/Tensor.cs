@@ -7,17 +7,35 @@ using UnityEngine;
 
 namespace SL.Lib
 {
+    [Serializable]
     public partial class Tensor<T> where T : IComparable<T>
     {
+        [SerializeReference]
         private T[] _data;
-
+        [SerializeField]
+        private int[] _shape;
+        [SerializeField]
+        private int[] _strides;
+        [SerializeField]
+        private int _offset;
+        [SerializeField]
+        private bool _isView;
+        [SerializeField]
+        private bool _isReadOnly;
+        public int[] Shape => _shape;
+        public int[] Strides => _strides;
+        public int Offset => _offset;
+        public bool IsView => _isView;
+        public bool IsReadOnly
+        {
+            get => _isReadOnly;
+            set => _isReadOnly = value;
+        }
         public IEnumerable<T> Unique => _data.Distinct();
 
         public T[] To1DArray() => (T[])_data.Clone();
-        public int[] Shape { get; }
 
         public int ndim => Shape.Length;
-        public int[] Strides { get; }
         private static int[] ComputeStrides(int[] shape)
         {
             var strides = new int[shape.Length];
@@ -29,9 +47,6 @@ namespace SL.Lib
             }
             return strides;
         }
-        public int Offset { get; }
-        public bool IsView { get; }
-        public bool IsReadOnly { get; set; }
         private void CheckReadOnly()
         {
             if (IsReadOnly)
@@ -70,31 +85,31 @@ namespace SL.Lib
         public Tensor(T[] data, int[] shape, bool isReadOnly = false)
         {
             _data = data;
-            Shape = shape;
-            Strides = ComputeStrides(shape);
-            Offset = 0;
-            IsView = false;
+            _shape = shape;
+            _strides = ComputeStrides(shape);
+            _offset = 0;
+            _isView = false;
             IsReadOnly = isReadOnly;
         }
 
         private Tensor(T[] data, int[] shape, int[] strides, int offset, bool isView, bool isReadOnly)
         {
             _data = data;
-            Shape = shape;
-            Strides = strides;
-            Offset = offset;
-            IsView = isView;
+            _shape = shape;
+            _strides = strides;
+            _offset = offset;
+            _isView = isView;
             IsReadOnly = isReadOnly;
         }
 
         public Tensor(Tensor<T> tensor, bool isReadOnly)
         {
-            Shape = (int[])tensor.Shape.Clone();
+            _shape = (int[])tensor.Shape.Clone();
             _data = (T[])tensor._data.Clone();
             IsReadOnly = isReadOnly;
-            Strides = (int[])tensor.Strides.Clone();
-            Offset = tensor.Offset;
-            IsView = false;
+            _strides = (int[])tensor.Strides.Clone();
+            _offset = tensor.Offset;
+            _isView = false;
         }
 
         public Tensor(Tensor<T> tensor) : this(tensor, tensor.IsReadOnly)
@@ -118,6 +133,34 @@ namespace SL.Lib
             get
             {
                 return Stack(indices.Select(index => this[index]), 0);
+            }
+            set
+            {
+                CheckReadOnly();
+                if (value.IsScalar)
+                {
+                    foreach (var indice in indices)
+                    {
+                        this[indice] = value.item;
+                    }
+                }
+                else
+                {
+                    if (value.Size() != indices.Count)
+                        throw new ArgumentException("The size of the value tensor must match the number of indices.");
+
+                    for (int i = 0; i < indices.Count; i++)
+                    {
+                        this[indices[i]] = value[value.GetIndices(i)].item;
+                    }
+                }
+            }
+        }
+        public Tensor<T> this[List<int[]> indices]
+        {
+            get
+            {
+                return FromArray(indices.Select(index => this[index]).ToArray());
             }
             set
             {

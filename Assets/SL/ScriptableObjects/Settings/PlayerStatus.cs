@@ -22,8 +22,8 @@ public class CharacterStatus
 {
     public float MaxIntensity = 2;
     public float RestoreIntensityPerSecond = 0.5f;
-    public float MaxMP = 20;
-    public float RestoreMPPerSecond = 1;
+    public float MaxFlux = 20;
+    public float RestoreFluxPerSecond = 1;
     public float MaxSpeed = 10;
     public float InvincibilityDuration = 0.5f;
 
@@ -31,8 +31,8 @@ public class CharacterStatus
     {
         MaxIntensity = maxIntensity;
         RestoreIntensityPerSecond = restoreIntensityPerSecond;
-        MaxMP = maxMP;
-        RestoreMPPerSecond = restoreMPPerSecond;
+        MaxFlux = maxMP;
+        RestoreFluxPerSecond = restoreMPPerSecond;
         MaxSpeed = maxSpeed;
         InvincibilityDuration = invincibilityDuration;
     }
@@ -43,8 +43,8 @@ public class CharacterStatus
         {
             CharacterStatusType.MaxIntensity => MaxIntensity,
             CharacterStatusType.RestoreIntensityPerSecond => RestoreIntensityPerSecond,
-            CharacterStatusType.MaxMP => MaxMP,
-            CharacterStatusType.RestoreMPPerSecond => RestoreMPPerSecond,
+            CharacterStatusType.MaxMP => MaxFlux,
+            CharacterStatusType.RestoreMPPerSecond => RestoreFluxPerSecond,
             CharacterStatusType.MaxSpeed => MaxSpeed,
             CharacterStatusType.InvincibilityDuration => InvincibilityDuration,
             _ => throw new ArgumentException("Invalid status type")
@@ -58,8 +58,8 @@ public class CharacterStatus
         {
             case CharacterStatusType.MaxIntensity: MaxIntensity = value; break;
             case CharacterStatusType.RestoreIntensityPerSecond: RestoreIntensityPerSecond = value; break;
-            case CharacterStatusType.MaxMP: MaxMP = value; break;
-            case CharacterStatusType.RestoreMPPerSecond: RestoreMPPerSecond = value; break;
+            case CharacterStatusType.MaxMP: MaxFlux = value; break;
+            case CharacterStatusType.RestoreMPPerSecond: RestoreFluxPerSecond = value; break;
             case CharacterStatusType.MaxSpeed: MaxSpeed = value; break;
             case CharacterStatusType.InvincibilityDuration: InvincibilityDuration = value; break;
             default: throw new ArgumentException("Invalid status type");

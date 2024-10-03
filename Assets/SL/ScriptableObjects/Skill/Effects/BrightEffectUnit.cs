@@ -31,10 +31,10 @@ public class BrightEffectUnit : EffectUnit
         {
             var dCost = brightExtraMPCost * Time.fixedDeltaTime;
             var dBrh = baseValue * level * Time.fixedDeltaTime;
-            while (Input.GetKeyDown(triggerKey)&&player.MP > dCost) 
+            while (Input.GetKeyDown(triggerKey)&&player.Flux > dCost) 
             {
                 DeltaUpdateLocalExtraLight(player, dBrh);
-                player.MP -= dCost;
+                player.Flux -= dCost;
                 yield return new WaitForNextPlayingFrame();
             }
             player.StartCoroutine(LightDecrease(player, decreaseDuration));

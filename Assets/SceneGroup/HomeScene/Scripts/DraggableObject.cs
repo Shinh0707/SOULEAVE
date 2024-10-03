@@ -1,3 +1,5 @@
+using SL.Lib;
+using System.Collections;
 using UnityEngine;
 
 public class DraggableObject : MonoBehaviour
@@ -5,6 +7,7 @@ public class DraggableObject : MonoBehaviour
     private bool isDragging = false;
     private Vector3 offset;
     private Camera mainCamera;
+    private Coroutine MoveCoroutine;
     public bool IsDragging { get { return isDragging; } }
 
     [SerializeField] private float screenEdgeThreshold = 0.1f; // ‰æ–Ê’[‚©‚ç‚Ìè‡’l
@@ -16,16 +19,52 @@ public class DraggableObject : MonoBehaviour
 
     private void OnMouseDown()
     {
-        isDragging = true;
-        offset = transform.position - GetMouseWorldPosition();
+        if (!isDragging && MoveCoroutine == null)
+        {
+            isDragging = true;
+            offset = transform.position - GetMouseWorldPosition();
+        }
+    }
+
+    public void SetDrag(Vector2 scrrenPosition)
+    {
+        if (!isDragging && MoveCoroutine == null)
+        {
+            isDragging = true;
+            MoveCoroutine = StartCoroutine(EaseIn(ScreenToWorld(scrrenPosition)));
+        }
+    }
+    public void SetDrag() => SetDrag(Input.mousePosition);
+
+    private IEnumerator EaseIn(Vector3 target, float duration = 0.5f)
+    {
+        Vector3 start = transform.position;
+        float yOffset = start.y;
+        float totalTime = 0f;
+        Vector3 current;
+        while (totalTime <= duration) 
+        {
+            current = VectorExtensions.EaseInTanh(start, target, totalTime / duration);
+            current.y = yOffset;
+            transform.position = current;
+            totalTime += Time.deltaTime;
+            yield return null;
+        }
+        current = target;
+        current.y = yOffset;
+        transform.position = current;
+        isDragging = false;
     }
 
     private void OnMouseUp()
     {
-        isDragging = false;
-        if (!IsWithinCameraBounds())
+        if (isDragging && MoveCoroutine == null)
         {
-            ResetToScreenCenter();
+            isDragging = false;
+            if (!IsWithinCameraBounds())
+            {
+                ResetToScreenCenter();
+            }
         }
     }
 
@@ -40,9 +79,14 @@ public class DraggableObject : MonoBehaviour
 
     private Vector3 GetMouseWorldPosition()
     {
-        Vector3 mouseScreenPosition = Input.mousePosition;
-        mouseScreenPosition.z = -mainCamera.transform.position.z;
-        return mainCamera.ScreenToWorldPoint(mouseScreenPosition);
+        return ScreenToWorld(Input.mousePosition);
+    }
+
+    private Vector3 ScreenToWorld(Vector2 screenPosition)
+    {
+        Vector3 position = screenPosition;
+        position.z = -mainCamera.transform.position.z;
+        return mainCamera.ScreenToWorldPoint(position);
     }
 
     private bool IsWithinCameraBounds()

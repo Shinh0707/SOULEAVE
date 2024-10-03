@@ -18,7 +18,7 @@ public class BasicStatusDrawer : MonoBehaviour
     {
         PlayerStatusManager.Instance.ResetRuntimeStatus();
         LPValue.text = $"{PlayerStatus.Instance.PlayerParameter.LP:F0}";
-        FluxValue.text = $"{PlayerStatusManager.Instance.RuntimeStatus.MaxMP:F2}";
+        FluxValue.text = $"{PlayerStatusManager.Instance.RuntimeStatus.MaxFlux:F2}";
         IntensityValue.text = $"{PlayerStatusManager.Instance.RuntimeStatus.MaxIntensity:F2}";
     }
 }

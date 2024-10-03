@@ -1,0 +1,69 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a063140eede691447aafa497c58a7f12, type: 3}
+  m_Name: MazeData
+  m_EditorClassIdentifier: 
+  mazeData:
+    mazeWidth: 5
+    mazeHeight: 5
+    tileList: []
+    baseMap:
+      _data: 01010101000100010000010000000001000000000101000000
+      _shape: 0500000005000000
+      _strides: 0500000001000000
+      _offset: 0
+      _isView: 0
+      _isReadOnly: 0
+    enemyMap:
+      _data:
+      - rid: 2342133923603021824
+      - rid: 2342133923603021824
+      - rid: 2342133923603021824
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021824
+      - rid: 2342133923603021824
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      - rid: 2342133923603021825
+      _shape: 0500000005000000
+      _strides: 0500000001000000
+      _offset: 0
+      _isView: 0
+      _isReadOnly: 0
+  minRouteAreaSize: 10
+  references:
+    version: 2
+    RefIds:
+    - rid: 2342133923603021824
+      type: {class: IEnemyTypeSelect, ns: SL.Lib, asm: Assembly-CSharp}
+      data:
+        enemyType: 0
+    - rid: 2342133923603021825
+      type: {class: IEnemyTypeSelect, ns: SL.Lib, asm: Assembly-CSharp}
+      data:
+        enemyType: 0

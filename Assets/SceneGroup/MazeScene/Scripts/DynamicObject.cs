@@ -4,6 +4,9 @@ using UnityEngine;
 
 public abstract class DynamicObject : MonoBehaviour
 {
+    public virtual void OnUpdate()
+    {
+    }
     public virtual void UpdateState()
     {
         //一括でタイミングを管理するため

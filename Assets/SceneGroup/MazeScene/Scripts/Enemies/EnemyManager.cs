@@ -5,49 +5,38 @@ using SL.Lib;
 
 public class EnemyManager : DynamicObject
 {
-    [SerializeField] private GameObject enemyPrefab;
-    private List<EnemyController> enemies = new List<EnemyController>();
-
+    public override void OnUpdate()
+    {
+        base.OnUpdate();
+        EnemyControllerManager.OnUpdate();
+    }
     public override void UpdateState()
     {
-        foreach(var enemy in enemies)
-        {
-            enemy.UpdateState();
-        }
+       base.UpdateState();
+        EnemyControllerManager.UpdateState();
     }
     public void HandleInput()
     {
-        foreach (var enemy in enemies)
+        EnemyControllerManager.HandleInput();
+    }
+
+    public void SpawnEnemies(EnemySpawnData[] enemySpawnDatas)
+    {
+        foreach (var spawnData in enemySpawnDatas)
         {
-            enemy.HandleInput();
+            SpawnEnemy(spawnData);
         }
     }
 
-    public void InitializeEnemies(List<Vector2> positions, (int,int) mazeSize)
+    private void SpawnEnemy(EnemySpawnData enemySpawnData)
     {
-        foreach (var position in positions)
-        {
-            SpawnEnemy(position, mazeSize);
-        }
-    }
-
-    private void SpawnEnemy(Vector2 position, (int,int) mazeSize)
-    {
-        GameObject enemyObject = Instantiate(enemyPrefab, position, Quaternion.identity);
+        GameObject enemyObject = Instantiate(EnemyManagerData.Instance.GetEnemyPrefab(enemySpawnData.EnemyType), enemySpawnData.Position, Quaternion.identity);
         EnemyController enemy = enemyObject.GetComponent<EnemyController>();
-        enemy.Initialize(position, mazeSize);
-        enemies.Add(enemy);
+        AssignEnemy(enemy, enemySpawnData.Position);
     }
 
-    private void SpawnNewEnemy()
+    public void AssignEnemy(EnemyController enemy, Vector2 position)
     {
-        Vector2 spawnPosition = MazeGameScene.Instance.MazeManager.GetRandomPosition();
-        SpawnEnemy(spawnPosition, MazeGameScene.Instance.MazeManager.mazeSize);
-    }
-
-    public void RemoveEnemy(EnemyController enemy)
-    {
-        enemies.Remove(enemy);
-        Destroy(enemy.gameObject);
+        enemy.Initialize(position);
     }
 }

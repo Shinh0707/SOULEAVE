@@ -1,4 +1,3 @@
-using Sl.Lib;
 using SL.Lib;
 using System.Collections;
 using System.Collections.Generic;
@@ -28,24 +27,24 @@ public class PlayerController : SoulController<PlayerInput>
             }
         }
     }
-    public override void Initialize(Vector2 position, (int rows, int cols) mazeSize)
+    public override void Initialize(Vector2 position)
     {
         SkillBank ??= PlayerStatusManager.Instance.GetSkills();
-        base.Initialize(position, mazeSize);
+        base.Initialize(position);
     }
-    protected override void UpdateMP()
+    protected override void UpdateFlux()
     {
-        MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
+        MazeGameScene.Instance.UIManager.UpdatePlayerStats(Flux, Intensity);
     }
     protected override void UpdateSightRange()
     {
         base.UpdateSightRange();
-        MazeGameScene.Instance.UIManager.UpdatePlayerStats(MP, Intensity);
+        MazeGameScene.Instance.UIManager.UpdatePlayerStats(Flux, Intensity);
     }
 
     protected override void OnCollision(Collision2D collision)
     {
-        Debug.Log($"Player collision to {collision.transform.name}");
+        //Debug.Log($"Player collision to {collision.transform.name}");
         if(collision.transform.tag == "Goal")
         {
             MazeGameScene.Instance.Victory();
@@ -71,5 +70,20 @@ public class PlayerController : SoulController<PlayerInput>
     protected override void InitializeVirtualInput()
     {
         virtualInput = new PlayerInput();
+    }
+
+    protected override void OnStartTargeted()
+    {
+        base.OnStartTargeted();
+        MazeGameScene.Instance.UIManager.StartTargeted();
+    }
+    protected override void OnStayTargeted()
+    {
+        base.OnStayTargeted();
+    }
+    protected override void OnEndTargeted()
+    {
+        base.OnEndTargeted();
+        MazeGameScene.Instance.UIManager.EndTargeted();
     }
 }
